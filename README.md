@@ -51,6 +51,9 @@ All endpoints except GET / and GET /health require the Authorization header in t
     pip install pytest httpx
     pytest
 
+## Opportunity discovery
+The recommendation endpoint is deliberately conservative: an item must be marked active, have verified current terms, and use an official API. A country-specific query accepts only an explicit country code or `GLOBAL`; unknown eligibility is excluded. The ranking is a review-priority score, not an earnings forecast. See `docs/opportunity-review-policy.md` before approving a connector.
+
 ## Safety and security
 - Never commit private keys, passwords, API tokens, or wallet seed phrases.
 - Keep secrets in environment variables or an ignored local .env file.
