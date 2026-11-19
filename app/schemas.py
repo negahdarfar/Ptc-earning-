@@ -34,3 +34,22 @@ class RevenueRead(RevenueCreate):
     recorded_at: datetime
     class Config:
         from_attributes = True
+
+
+class DigitalProductCreate(BaseModel):
+    title: str = Field(min_length=3, max_length=160)
+    category: str = Field(min_length=2, max_length=60)
+    language: str = Field(default="en", min_length=2, max_length=12)
+    short_description: str = Field(min_length=10, max_length=500)
+    full_description: str = Field(default="", max_length=10000)
+    price_amount: str = Field(default="0", pattern=r"^\\d+(\\.\\d{1,8})?$")
+    price_currency: str = Field(default="USD", min_length=2, max_length=10)
+    asset_url: HttpUrl | None = None
+    rights_confirmed: bool = False
+    status: str = "draft"
+
+class DigitalProductRead(DigitalProductCreate):
+    id: int
+    created_at: datetime
+    class Config:
+        from_attributes = True
