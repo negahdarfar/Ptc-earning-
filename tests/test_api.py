@@ -1,14 +1,27 @@
 import pytest
 from fastapi.testclient import TestClient
+from sqlmodel import Session, SQLModel, create_engine
+from app.database import get_session
 from app.main import app
 
 
 @pytest.fixture
 def client(monkeypatch, tmp_path):
     monkeypatch.setenv("EARNORBIT_API_TOKEN", "test-secret-token")
-    monkeypatch.setenv("DATABASE_URL", f"sqlite:///{tmp_path / 'test.db'}")
-    with TestClient(app) as test_client:
-        yield test_client
+    engine = create_engine(f"sqlite:///{tmp_path / 'test.db'}", connect_args={"check_same_thread": False})
+    SQLModel.metadata.create_all(engine)
+
+    def get_test_session():
+        with Session(engine) as session:
+            yield session
+
+    app.dependency_overrides[get_session] = get_test_session
+    try:
+        with TestClient(app) as test_client:
+            yield test_client
+    finally:
+        app.dependency_overrides.clear()
+        engine.dispose()
 
 
 def test_health_is_public(client):
