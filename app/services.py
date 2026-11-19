@@ -2,11 +2,24 @@ from decimal import Decimal, InvalidOperation
 from sqlmodel import Session, select
 from .models import Opportunity, RevenueEntry
 
-def list_opportunities(session: Session, status: str | None = None):
+def list_opportunities(session: Session, status: str | None = None, category: str | None = None):
     statement = select(Opportunity).order_by(Opportunity.created_at.desc())
     if status:
         statement = statement.where(Opportunity.status == status)
+    if category:
+        statement = statement.where(Opportunity.category.ilike(category.strip()))
     return session.exec(statement).all()
+
+
+def list_catalog_opportunities(session: Session, category: str | None = None, limit: int = 100):
+    """Return human-reviewed active sources; this does not authorize automated activity."""
+    statement = select(Opportunity).where(
+        Opportunity.status == "active",
+        Opportunity.terms_verified.is_(True),
+    ).order_by(Opportunity.created_at.desc())
+    if category:
+        statement = statement.where(Opportunity.category.ilike(category.strip()))
+    return session.exec(statement.limit(max(1, min(limit, 250)))).all()
 
 def list_revenue(session: Session, status: str | None = None):
     statement = select(RevenueEntry).order_by(RevenueEntry.recorded_at.desc())
