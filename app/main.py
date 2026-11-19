@@ -199,6 +199,12 @@ def get_recommended_opportunities(country: str | None = Query(default=None, min_
     return recommend_opportunities(session, country, crypto_only, limit)
 
 
+@app.get("/audit", dependencies=[Depends(require_api_token)])
+def get_audit_events(limit: int = Query(default=100, ge=1, le=500), session: Session = Depends(get_session)):
+    """Read recent audit events; sensitive payloads and credentials are never logged."""
+    return session.exec(select(AuditEvent).order_by(AuditEvent.created_at.desc()).limit(limit)).all()
+
+
 @app.get("/summary", dependencies=[Depends(require_api_token)])
 def summary(session: Session = Depends(get_session)):
     return build_summary(session)
