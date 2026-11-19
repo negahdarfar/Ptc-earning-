@@ -8,11 +8,11 @@ from fastapi.responses import FileResponse
 from sqlmodel import Session, select
 
 from .database import create_db_and_tables, get_session
-from .models import Opportunity, RevenueEntry, ExpenseEntry, DigitalProduct, OpportunityEvidence, AuditEvent
+from .models import Opportunity, RevenueEntry, ExpenseEntry, DigitalProduct, OpportunityEvidence, AuditEvent, WorkSession
 from .schemas import (
     OpportunityCreate, OpportunityRead, RevenueCreate, RevenueRead,
     ExpenseCreate, ExpenseRead, DigitalProductCreate, DigitalProductRead,
-    OpportunityEvidenceCreate, OpportunityEvidenceRead,
+    OpportunityEvidenceCreate, OpportunityEvidenceRead, WorkSessionCreate, WorkSessionRead,
 )
 from .services import (
     list_opportunities, list_revenue, list_expenses, build_summary,
@@ -20,6 +20,7 @@ from .services import (
 )
 from .discovery import recommend_opportunities, rank_opportunities
 from .optimizer import build_optimizer_plan
+from .performance import build_performance_summary
 
 
 @asynccontextmanager
@@ -205,6 +206,41 @@ def get_recommended_opportunities(country: str | None = Query(default=None, min_
 def get_audit_events(limit: int = Query(default=100, ge=1, le=500), session: Session = Depends(get_session)):
     """Read recent audit events; sensitive payloads and credentials are never logged."""
     return session.exec(select(AuditEvent).order_by(AuditEvent.created_at.desc()).limit(limit)).all()
+
+
+@app.post("/work-sessions", response_model=WorkSessionRead, status_code=201, dependencies=[Depends(require_api_token)])
+def create_work_session(payload: WorkSessionCreate, session: Session = Depends(get_session)):
+    if payload.status in {"rejected", "abandoned"} and payload.reward_amount != "0":
+        raise HTTPException(status_code=422, detail="rejected or abandoned sessions cannot have a reward")
+    item = WorkSession(**payload.model_dump(exclude={"started_at"}))
+    if payload.started_at:
+        item.started_at = payload.started_at
+    session.add(item)
+    session.flush()
+    session.add(AuditEvent(event_type="work_session_recorded", entity_type="work_session", entity_id=item.id,
+                           details="Work duration and task outcome recorded; reward is not cash payout."))
+    session.commit()
+    session.refresh(item)
+    return item
+
+
+@app.get("/work-sessions", response_model=list[WorkSessionRead], dependencies=[Depends(require_api_token)])
+def get_work_sessions(source_name: str | None = Query(default=None, min_length=2, max_length=120),
+                      status: str | None = Query(default=None),
+                      session: Session = Depends(get_session)):
+    statement = select(WorkSession).order_by(WorkSession.started_at.desc())
+    if source_name:
+        statement = statement.where(WorkSession.source_name == source_name)
+    if status:
+        if status not in {"pending", "approved", "rejected", "abandoned"}:
+            raise HTTPException(status_code=422, detail="invalid work-session status")
+        statement = statement.where(WorkSession.status == status)
+    return session.exec(statement).all()
+
+
+@app.get("/performance", dependencies=[Depends(require_api_token)])
+def performance(session: Session = Depends(get_session)):
+    return build_performance_summary(session)
 
 
 @app.get("/optimizer/plan", dependencies=[Depends(require_api_token)])

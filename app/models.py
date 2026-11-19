@@ -81,3 +81,15 @@ class AuditEvent(SQLModel, table=True):
     entity_id: int = Field(index=True)
     details: str = ""
     created_at: datetime = Field(default_factory=utc_now)
+
+
+class WorkSession(SQLModel, table=True):
+    """Track actual time and task outcomes separately from cash payouts."""
+    id: Optional[int] = Field(default=None, primary_key=True)
+    source_name: str = Field(index=True)
+    minutes_spent: int
+    reward_amount: str = "0"
+    currency: str = Field(default="USD", index=True)
+    status: str = Field(default="pending", index=True)
+    started_at: datetime = Field(default_factory=utc_now, index=True)
+    notes: str = ""

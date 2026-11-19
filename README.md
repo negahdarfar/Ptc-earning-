@@ -97,3 +97,7 @@ MIT
 
 ## Monthly target optimizer
 Use the authenticated `GET /optimizer/plan` endpoint to calculate the current month's confirmed net, remaining gap to a configurable target, required daily/hourly pace, and the hours implied by evidence-backed sources. Parameters: `target` (default 1000), `currency` (default USD), `hours_per_day` (default 2), and optional explicit `country` (two-letter code). Without a country parameter, only sources explicitly marked `GLOBAL` are considered. Opportunity ranking discounts stale or incomplete evidence. This is a planning estimate, not an earnings guarantee.
+
+
+## Actual work-time performance
+Use authenticated `POST /work-sessions` to record minutes spent on a platform and whether the task is pending, approved, rejected, or abandoned. `GET /performance` reports approved work value per tracked hour, approval rate, pending value, and total time by platform/currency. Approved task value is not cash received; the revenue ledger remains the source of truth for paid-out income.

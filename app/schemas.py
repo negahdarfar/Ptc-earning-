@@ -88,3 +88,20 @@ class OpportunityEvidenceRead(OpportunityEvidenceCreate):
     created_at: datetime
     class Config:
         from_attributes = True
+
+
+class WorkSessionCreate(BaseModel):
+    source_name: str = Field(min_length=2, max_length=120)
+    minutes_spent: int = Field(ge=1, le=1440)
+    reward_amount: str = Field(default="0", pattern=r"^\d+(\.\d{1,8})?$")
+    currency: str = Field(default="USD", min_length=3, max_length=10)
+    status: str = Field(default="pending", pattern=r"^(pending|approved|rejected|abandoned)$")
+    started_at: datetime | None = None
+    notes: str = Field(default="", max_length=2000)
+
+
+class WorkSessionRead(WorkSessionCreate):
+    id: int
+    started_at: datetime
+    class Config:
+        from_attributes = True

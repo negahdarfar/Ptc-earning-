@@ -66,3 +66,10 @@ Do not call the system production-ready until CI passes, deployment secrets are 
 - Add an authenticated monthly plan endpoint that calculates the remaining net target gap, daily pace, required net hourly pace, and source-level hours at each estimated rate.
 - When no operator country is selected, only explicitly GLOBAL sources can enter the plan; never infer eligibility from network location.
 - Keep estimates distinct from confirmed revenue and paid expenses. A mathematical fit is not a guarantee of task volume, acceptance, or payout.
+
+
+### Phase 2B — Actual work-time feedback loop (implemented in the active branch)
+- Record task duration and outcome independently from payout ledger entries.
+- Calculate approved task value per tracked hour, task acceptance rate, pending value, rejected/abandoned time, and source-level productivity.
+- Keep approved work value separate from confirmed cash revenue to avoid overstating income.
+- Use measured performance to recalibrate estimated opportunity economics and stop spending time on low-yield sources.
