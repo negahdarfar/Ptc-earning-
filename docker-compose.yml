@@ -1,0 +1,14 @@
+services:
+  earnorbit:
+    build: .
+    container_name: earnorbit
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: sqlite:////data/earnorbit.db
+      ENVIRONMENT: production
+    volumes:
+      - earnorbit_data:/data
+    restart: unless-stopped
+volumes:
+  earnorbit_data:
