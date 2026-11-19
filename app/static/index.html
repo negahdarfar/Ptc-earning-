@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>EarnOrbit Dashboard</title>
+<style>
+:root{font-family:Inter,system-ui,sans-serif;color:#172033;background:#f4f6fb}*{box-sizing:border-box}body{margin:0}header{background:#101a32;color:white;padding:22px max(20px,calc((100% - 1100px)/2))}header h1{margin:0;font-size:25px}header p{margin:6px 0 0;color:#c7d0e4}.wrap{max-width:1100px;margin:24px auto;padding:0 18px}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px}.card{background:white;border:1px solid #e2e7f0;border-radius:14px;padding:18px;box-shadow:0 4px 14px #17203308}.metric{font-size:27px;font-weight:750;margin-top:8px}.muted{color:#64708a;font-size:13px}.columns{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px}h2{font-size:17px;margin:0 0 14px}form{display:grid;gap:9px}input,select,textarea,button{font:inherit;padding:10px;border:1px solid #d8deea;border-radius:8px;width:100%}button{background:#2359d1;color:white;border:0;font-weight:650;cursor:pointer}button:hover{background:#1747b4}.item{padding:12px 0;border-top:1px solid #edf0f5}.tag{font-size:11px;padding:3px 7px;border-radius:20px;background:#edf2ff;color:#244eaa}.error{color:#b42318}.notice{margin:12px 0;padding:10px;background:#fff7df;border-radius:8px;color:#795b13;font-size:13px}@media(max-width:700px){.columns{grid-template-columns:1fr}}
+</style></head>
+<body>
+<header><h1>EarnOrbit</h1><p>Global Autonomous Crypto Earning Network · MVP dashboard</p></header>
+<main class="wrap">
+<div class="notice">This dashboard is an early MVP. It records opportunities and revenue; it does not execute tasks, create earnings, or send crypto. Do not expose it publicly without authentication and HTTPS.</div>
+<section class="grid">
+<div class="card"><div class="muted">Confirmed revenue</div><div class="metric" id="confirmed">—</div></div>
+<div class="card"><div class="muted">Confirmed entries</div><div class="metric" id="confirmedCount">—</div></div>
+<div class="card"><div class="muted">Pending entries</div><div class="metric" id="pendingCount">—</div></div>
+<div class="card"><div class="muted">Tracked opportunities</div><div class="metric" id="opCount">—</div></div>
+</section>
+<section class="columns">
+<div class="card"><h2>Add opportunity</h2>
+<form id="oppForm">
+<input name="name" placeholder="Platform / opportunity name" required>
+<input name="category" placeholder="Category (affiliate, offerwall, microtask…)" required>
+<input name="platform_url" type="url" placeholder="Official website URL" required>
+<input name="country_eligibility" placeholder="Eligible countries (or unknown)">
+<input name="payout_method" placeholder="Payout method (or unknown)">
+<input name="payout_currency" placeholder="Payout currency" value="USD">
+<select name="official_api"><option value="false">No official API verified</option><option value="true">Official API available</option></select>
+<select name="terms_verified"><option value="false">Terms not verified</option><option value="true">Terms verified</option></select>
+<textarea name="notes" placeholder="Notes / restrictions"></textarea>
+<button>Add opportunity</button></form>
+</div>
+<div class="card"><h2>Record revenue</h2>
+<form id="revForm">
+<input name="source_name" placeholder="Revenue source" required>
+<input name="amount" type="number" min="0" step="0.00000001" placeholder="Amount" required>
+<input name="currency" value="USD" placeholder="Currency" required>
+<select name="status"><option value="pending">Pending / unverified</option><option value="confirmed">Confirmed / received</option><option value="rejected">Rejected</option></select>
+<input name="payout_reference" placeholder="Transaction reference (optional)">
+<textarea name="notes" placeholder="Notes"></textarea>
+<button>Save revenue record</button></form>
+</div></section>
+<section class="columns">
+<div class="card"><h2>Opportunities</h2><div id="opps" class="muted">Loading…</div></div>
+<div class="card"><h2>Revenue ledger</h2><div id="revs" class="muted">Loading…</div></div>
+</section>
+<p id="message" class="muted"></p>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+async function api(path,opts){const r=await fetch(path,opts);if(!r.ok)throw new Error((await r.text()).slice(0,240));return r.json()}
+function formObj(form){return Object.fromEntries(new FormData(form).entries())}
+function showMsg(s,bad=false){$("message").textContent=s;$("message").className=bad?"error":""}
+async function refresh(){
+ try{
+ const [summary,opps,revs]=await Promise.all([api("/summary"),api("/opportunities"),api("/revenue")]);
+ const currencies=Object.entries(summary.confirmed_revenue_by_currency||{}).map(([c,v])=>c+" "+v).join(" · ")||"0";
+ $("confirmed").textContent=currencies;$("confirmedCount").textContent=summary.confirmed_entries;$("pendingCount").textContent=summary.pending_entries;$("opCount").textContent=opps.length;
+ $("opps").innerHTML=opps.length?opps.map(x=>'<div class="item"><b>'+esc(x.name)+'</b> <span class="tag">'+esc(x.status)+'</span><div class="muted">'+esc(x.category)+' · '+esc(x.payout_method)+'</div><a href="'+esc(x.platform_url)+'" target="_blank" rel="noopener">Official site</a></div>').join(""):"No opportunities yet.";
+ $("revs").innerHTML=revs.length?revs.map(x=>'<div class="item"><b>'+esc(x.amount)+' '+esc(x.currency)+'</b> · '+esc(x.source_name)+' <span class="tag">'+esc(x.status)+'</span><div class="muted">'+new Date(x.recorded_at).toLocaleString()+'</div></div>').join(""):"No revenue records yet.";
+ }catch(e){showMsg("Could not load dashboard: "+e.message,true)}
+}
+function esc(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
+$("oppForm").addEventListener("submit",async e=>{e.preventDefault();try{const d=formObj(e.target);d.official_api=d.official_api==="true";d.terms_verified=d.terms_verified==="true";await api("/opportunities",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(d)});e.target.reset();showMsg("Opportunity saved.");refresh()}catch(err){showMsg(err.message,true)}});
+$("revForm").addEventListener("submit",async e=>{e.preventDefault();try{await api("/revenue",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(formObj(e.target))});e.target.reset();showMsg("Revenue record saved.");refresh()}catch(err){showMsg(err.message,true)}});
+refresh();
+</script></body></html>
