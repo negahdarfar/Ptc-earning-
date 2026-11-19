@@ -8,7 +8,7 @@ EarnOrbit is an open-source, modular platform for discovering and tracking legit
 ## MVP status
 - [x] FastAPI service and SQLite persistence
 - [x] Opportunity registry and revenue ledger
-- [x] Revenue summary and responsive dashboard
+- [x] Revenue summary, expense ledger, net profit, and responsive dashboard
 - [x] Bearer-token protection for private API endpoints
 - [x] Production startup fails closed if the API token is missing
 - [x] Docker Compose requires an externally supplied API token
@@ -49,9 +49,11 @@ All endpoints except GET / and GET /health require the Authorization header in t
 - POST /opportunities — add an opportunity
 - GET /revenue — revenue ledger
 - POST /revenue — record revenue
+- GET /expenses — operating expense ledger (optional status filter)
+- POST /expenses — record a planned, paid, or void expense
 - GET /products — list digital products
 - POST /products — create a digital product draft
-- GET /summary — totals by currency
+- GET /summary — confirmed gross revenue, paid expenses, and net profit by currency (currencies are never mixed)
 
 ## Tests
     pip install pytest httpx
