@@ -5,11 +5,11 @@ from pathlib import Path
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Query
 from fastapi.responses import FileResponse
-from sqlmodel import Session
+from sqlmodel import Session, select
 
 from .database import create_db_and_tables, get_session
-from .models import Opportunity, RevenueEntry
-from .schemas import OpportunityCreate, OpportunityRead, RevenueCreate, RevenueRead
+from .models import Opportunity, RevenueEntry, DigitalProduct
+from .schemas import OpportunityCreate, OpportunityRead, RevenueCreate, RevenueRead, DigitalProductCreate, DigitalProductRead
 from .services import list_opportunities, list_revenue, build_summary
 from .discovery import recommend_opportunities
 
@@ -69,6 +69,30 @@ def create_opportunity(payload: OpportunityCreate, session: Session = Depends(ge
 @app.get("/opportunities", response_model=list[OpportunityRead], dependencies=[Depends(require_api_token)])
 def get_opportunities(status: str | None = Query(default=None), session: Session = Depends(get_session)):
     return list_opportunities(session, status)
+
+
+@app.post("/products", response_model=DigitalProductRead, status_code=201, dependencies=[Depends(require_api_token)])
+def create_product(payload: DigitalProductCreate, session: Session = Depends(get_session)):
+    if payload.status not in {"draft", "ready", "archived"}:
+        raise HTTPException(status_code=422, detail="status must be draft, ready, or archived")
+    if payload.status == "ready" and (not payload.rights_confirmed or not payload.asset_url):
+        raise HTTPException(status_code=422, detail="ready products require confirmed rights and an asset URL")
+    item = DigitalProduct(**payload.model_dump(mode="json"))
+    item.asset_url = str(payload.asset_url) if payload.asset_url else None
+    session.add(item)
+    session.commit()
+    session.refresh(item)
+    return item
+
+
+@app.get("/products", response_model=list[DigitalProductRead], dependencies=[Depends(require_api_token)])
+def get_products(status: str | None = Query(default=None), session: Session = Depends(get_session)):
+    statement = select(DigitalProduct).order_by(DigitalProduct.created_at.desc())
+    if status:
+        if status not in {"draft", "ready", "archived"}:
+            raise HTTPException(status_code=422, detail="invalid product status")
+        statement = statement.where(DigitalProduct.status == status)
+    return session.exec(statement).all()
 
 
 @app.post("/revenue", response_model=RevenueRead, status_code=201, dependencies=[Depends(require_api_token)])
