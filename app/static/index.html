@@ -45,6 +45,22 @@
 <div class="card"><h2>Opportunities</h2><div id="opps" class="muted">Loading…</div></div>
 <div class="card"><h2>Revenue ledger</h2><div id="revs" class="muted">Loading…</div></div>
 </section>
+<section class="columns">
+<div class="card"><h2>Create digital product draft</h2>
+<form id="productForm">
+<input name="title" placeholder="Product title" required minlength="3">
+<input name="category" placeholder="Category (ebook, template, artwork…)" required>
+<input name="language" value="en" placeholder="Language">
+<input name="price_amount" type="number" min="0" step="0.00000001" value="0" placeholder="Price">
+<input name="price_currency" value="USD" placeholder="Currency">
+<input name="asset_url" type="url" placeholder="Secure file URL (optional)">
+<input name="short_description" placeholder="Short product description" required minlength="10">
+<textarea name="full_description" placeholder="Product content, outline, specifications or sales copy"></textarea>
+<select name="rights_confirmed"><option value="false">Rights not yet confirmed</option><option value="true">I confirm I own or may distribute this work</option></select>
+<button>Create product draft</button>
+</form></div>
+<div class="card"><h2>Digital product catalog</h2><div id="products" class="muted">Connect to load products…</div></div>
+</section>
 <p id="message" class="muted"></p>
 </main>
 <script>
@@ -59,15 +75,17 @@ function formObj(form){return Object.fromEntries(new FormData(form).entries())}
 function showMsg(s,bad=false){$("message").textContent=s;$("message").className=bad?"error":""}
 async function refresh(){
  try{
- const [summary,opps,revs]=await Promise.all([api("/summary"),api("/opportunities"),api("/revenue")]);
+ const [summary,opps,revs,products]=await Promise.all([api("/summary"),api("/opportunities"),api("/revenue"),api("/products")]);
  const currencies=Object.entries(summary.confirmed_revenue_by_currency||{}).map(([c,v])=>c+" "+v).join(" · ")||"0";
  $("confirmed").textContent=currencies;$("confirmedCount").textContent=summary.confirmed_entries;$("pendingCount").textContent=summary.pending_entries;$("opCount").textContent=opps.length;
  $("opps").innerHTML=opps.length?opps.map(x=>'<div class="item"><b>'+esc(x.name)+'</b> <span class="tag">'+esc(x.status)+'</span><div class="muted">'+esc(x.category)+' · '+esc(x.payout_method)+'</div><a href="'+esc(x.platform_url)+'" target="_blank" rel="noopener">Official site</a></div>').join(""):"No opportunities yet.";
+ $("products").innerHTML=products.length?products.map(x=>['<div class="item"><b>',esc(x.title),'</b> <span class="tag">',esc(x.status),'</span><div class="muted">',esc(x.category),' · ',esc(x.price_amount),' ',esc(x.price_currency),'</div><div class="muted">',esc(x.short_description),'</div></div>'].join("")).join(""):"No digital products yet.";
  $("revs").innerHTML=revs.length?revs.map(x=>'<div class="item"><b>'+esc(x.amount)+' '+esc(x.currency)+'</b> · '+esc(x.source_name)+' <span class="tag">'+esc(x.status)+'</span><div class="muted">'+new Date(x.recorded_at).toLocaleString()+'</div></div>').join(""):"No revenue records yet.";
  }catch(e){showMsg("Could not load dashboard: "+e.message,true)}
 }
 function esc(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
 $("oppForm").addEventListener("submit",async e=>{e.preventDefault();try{const d=formObj(e.target);d.official_api=d.official_api==="true";d.terms_verified=d.terms_verified==="true";await api("/opportunities",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(d)});e.target.reset();showMsg("Opportunity saved.");refresh()}catch(err){showMsg(err.message,true)}});
+$("productForm").addEventListener("submit",async e=>{e.preventDefault();try{const d=formObj(e.target);d.rights_confirmed=d.rights_confirmed==="true";d.status="draft";if(!d.asset_url)delete d.asset_url;await api("/products",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(d)});e.target.reset();showMsg("Digital product draft saved.");refresh()}catch(err){showMsg(err.message,true)}});
 $("revForm").addEventListener("submit",async e=>{e.preventDefault();try{await api("/revenue",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(formObj(e.target))});e.target.reset();showMsg("Revenue record saved.");refresh()}catch(err){showMsg(err.message,true)}});
 refresh();
 </script></body></html>
