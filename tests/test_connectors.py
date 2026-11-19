@@ -37,8 +37,13 @@ def test_enabled_connector_requires_explicit_country_eligibility_and_review():
     registry.register(manifest(enabled=True))
     assert [item.connector_id for item in registry.list_for_country("GB")] == ["sample"]
 
+    other_country = ConnectorRegistry()
+    other_country.register(manifest(enabled=True, supported_countries=("US",)))
+    assert other_country.list_for_country("US") == [other_country.get("sample")]
+    assert other_country.list_for_country("GB") == []
+
     with pytest.raises(ConnectorRegistrationError):
-        ConnectorRegistry().register(manifest(enabled=True, supported_countries=("US",)))
+        ConnectorRegistry().register(manifest(enabled=True, supported_countries=()))
 
     with pytest.raises(ConnectorRegistrationError):
         ConnectorRegistry().register(manifest(enabled=True, terms_reviewed_on=None))
