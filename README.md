@@ -93,3 +93,7 @@ The first creator workflow is available through the authenticated `/products` AP
 
 ## License
 MIT
+
+
+## Monthly target optimizer
+Use the authenticated `GET /optimizer/plan` endpoint to calculate the current month's confirmed net, remaining gap to a configurable target, required daily/hourly pace, and the hours implied by evidence-backed sources. Parameters: `target` (default 1000), `currency` (default USD), `hours_per_day` (default 2), and optional explicit `country` (two-letter code). Without a country parameter, only sources explicitly marked `GLOBAL` are considered. Opportunity ranking discounts stale or incomplete evidence. This is a planning estimate, not an earnings guarantee.

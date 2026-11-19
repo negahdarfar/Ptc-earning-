@@ -19,6 +19,7 @@ from .services import (
     list_catalog_opportunities,
 )
 from .discovery import recommend_opportunities, rank_opportunities
+from .optimizer import build_optimizer_plan
 
 
 @asynccontextmanager
@@ -204,6 +205,24 @@ def get_recommended_opportunities(country: str | None = Query(default=None, min_
 def get_audit_events(limit: int = Query(default=100, ge=1, le=500), session: Session = Depends(get_session)):
     """Read recent audit events; sensitive payloads and credentials are never logged."""
     return session.exec(select(AuditEvent).order_by(AuditEvent.created_at.desc()).limit(limit)).all()
+
+
+@app.get("/optimizer/plan", dependencies=[Depends(require_api_token)])
+def optimizer_plan(
+    target: str = Query(default="1000", pattern=r"^\\d+(\\.\\d{1,2})?$"),
+    currency: str = Query(default="USD", min_length=3, max_length=10),
+    hours_per_day: float = Query(default=2.0, gt=0, le=24),
+    country: str | None = Query(default=None, min_length=2, max_length=2),
+    session: Session = Depends(get_session),
+):
+    """Build a monthly target plan from confirmed net results and evidence-backed opportunities."""
+    return build_optimizer_plan(
+        session,
+        target=target,
+        currency=currency,
+        hours_per_day=hours_per_day,
+        country=country,
+    )
 
 
 @app.get("/summary", dependencies=[Depends(require_api_token)])

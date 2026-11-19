@@ -57,3 +57,12 @@ A USD 1,000 monthly net target means approximately USD 33.33 net per calendar da
 ## Release gate
 
 Do not call the system production-ready until CI passes, deployment secrets are configured outside Git, HTTPS is enabled, backups are tested, and at least one real provider integration has passed a terms and payout test without violating provider rules.
+
+
+### Phase 2A — Monthly target optimizer (implemented in the active branch)
+- Confidence-adjust opportunity economics using evidence completeness and evidence age.
+- Label evidence as fresh (0–30 days), review due (31–90 days), or stale (over 90 days).
+- Rank by confidence-adjusted net hourly estimate rather than raw reward rate alone.
+- Add an authenticated monthly plan endpoint that calculates the remaining net target gap, daily pace, required net hourly pace, and source-level hours at each estimated rate.
+- When no operator country is selected, only explicitly GLOBAL sources can enter the plan; never infer eligibility from network location.
+- Keep estimates distinct from confirmed revenue and paid expenses. A mathematical fit is not a guarantee of task volume, acceptance, or payout.
