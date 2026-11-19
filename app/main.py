@@ -209,7 +209,7 @@ def get_audit_events(limit: int = Query(default=100, ge=1, le=500), session: Ses
 
 @app.get("/optimizer/plan", dependencies=[Depends(require_api_token)])
 def optimizer_plan(
-    target: str = Query(default="1000", pattern=r"^\\d+(\\.\\d{1,2})?$"),
+    target: str = Query(default="1000", pattern=r"^\d+(\.\d{1,2})?$"),
     currency: str = Query(default="USD", min_length=3, max_length=10),
     hours_per_day: float = Query(default=2.0, gt=0, le=24),
     country: str | None = Query(default=None, min_length=2, max_length=2),
