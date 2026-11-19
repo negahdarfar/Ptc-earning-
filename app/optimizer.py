@@ -54,8 +54,9 @@ def build_optimizer_plan(
     # With no operator-selected country, only explicitly GLOBAL opportunities are eligible.
     eligible = [
         row for row in ranked
-        if row["country_eligibility"] == "GLOBAL"
-        or (country and row["country_eligibility"] == country.strip().upper())
+        if row["status"] == "active"
+        and (row["country_eligibility"] == "GLOBAL"
+        or (country and row["country_eligibility"] == country.strip().upper()))
     ]
     eligible = [row for row in eligible if row["payout_currency"].strip().upper() == currency_code]
     sources = []

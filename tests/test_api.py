@@ -122,9 +122,18 @@ def test_product_price_must_be_numeric(client):
 
 def test_opportunity_catalog_includes_reviewed_manual_sources_but_not_unreviewed(client):
     base = {"category": "ptc", "platform_url": "https://example.com",
-            "country_eligibility": "unknown", "official_api": False,
+            "country_eligibility": "GLOBAL", "official_api": False,
             "terms_verified": True, "status": "active"}
-    assert client.post("/opportunities", json={"name": "Manual PTC", **base}, headers=auth()).status_code == 201
+    created = client.post("/opportunities", json={"name": "Manual PTC", **base}, headers=auth())
+    assert created.status_code == 201
+    assert created.json()["status"] == "pending"
+    assert created.json()["terms_verified"] is False
+    oid = created.json()["id"]
+    evidence = {"evidence_url": "https://example.com/terms", "reviewed_on": "2026-11-19T00:00:00",
+                "country_eligibility": "GLOBAL", "payout_method": "Bank", "payout_currency": "USD",
+                "minimum_payout": "5", "reviewer_notes": "Terms reviewed"}
+    assert client.post(f"/opportunities/{oid}/evidence", json=evidence, headers=auth()).status_code == 201
+    assert client.post(f"/opportunities/{oid}/activate", headers=auth()).status_code == 200
     unreviewed = {**base, "name": "Unreviewed PTC", "terms_verified": False}
     assert client.post("/opportunities", json=unreviewed, headers=auth()).status_code == 201
     result = client.get("/opportunities/catalog?category=ptc", headers=auth())
@@ -192,6 +201,8 @@ def test_opportunity_evidence_and_ranked_unit_economics(client):
         "approval_rate_percent":"80","reviewer_notes":"Test evidence record"}
     saved = client.post(f"/opportunities/{oid}/evidence", json=evidence, headers=auth())
     assert saved.status_code == 201
+    activated = client.post(f"/opportunities/{oid}/activate", headers=auth())
+    assert activated.status_code == 200
     ranked = client.get("/opportunities/ranked?country=DE", headers=auth())
     assert ranked.status_code == 200
     assert ranked.json()[0]["estimated_net_hourly"] == "9.12"

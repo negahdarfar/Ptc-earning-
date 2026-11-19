@@ -72,6 +72,9 @@ def health():
 def create_opportunity(payload: OpportunityCreate, session: Session = Depends(get_session)):
     item = Opportunity(**payload.model_dump(mode="json"))
     item.platform_url = str(payload.platform_url)
+    # Intake cannot self-approve: only the evidence-backed activation endpoint can activate a source.
+    item.terms_verified = False
+    item.status = "pending"
     session.add(item)
     session.flush()
     session.add(AuditEvent(event_type="opportunity_created", entity_type="opportunity", entity_id=item.id,
@@ -156,7 +159,8 @@ def review_source_lead(lead_id: int, payload: SourceLeadReview, session: Session
             raise HTTPException(status_code=422, detail="approval requires verified payout method, currency, and minimum payout")
         if not payload.review_notes.strip():
             raise HTTPException(status_code=422, detail="approval requires reviewer notes")
-    for field, value in payload.model_dump().items():
+    for field in payload.model_fields_set:
+        value = getattr(payload, field)
         if field == "official_terms_url":
             setattr(lead, field, str(value) if value else "")
         elif field == "reviewed_on":
@@ -210,16 +214,21 @@ def activate_opportunity(opportunity_id: int, session: Session = Depends(get_ses
     ).order_by(OpportunityEvidence.reviewed_on.desc())).first()
     if not evidence:
         raise HTTPException(status_code=409, detail="A dated official evidence record is required")
-    if evidence.country_eligibility.strip().upper() == "UNKNOWN":
-        raise HTTPException(status_code=409, detail="Explicit country eligibility is required")
-    if evidence.payout_method.strip().lower() in {"", "unknown"} or evidence.minimum_payout.strip().lower() in {"", "unknown"}:
-        raise HTTPException(status_code=409, detail="Payout method and minimum payout must be reviewed")
+    scope = evidence.country_eligibility.strip().upper()
+    if not (scope == "GLOBAL" or (len(scope) == 2 and scope.isalpha())):
+        raise HTTPException(status_code=409, detail="Explicit GLOBAL or ISO-2 country eligibility is required")
+    if not str(evidence.evidence_url).startswith("https://"):
+        raise HTTPException(status_code=409, detail="Official evidence must use HTTPS")
+    if any(value.strip().lower() in {"", "unknown"} for value in (evidence.payout_method, evidence.payout_currency, evidence.minimum_payout)):
+        raise HTTPException(status_code=409, detail="Payout method, currency and minimum payout must be reviewed")
     try:
         age = (date.today() - date.fromisoformat(evidence.reviewed_on[:10])).days
     except ValueError:
         age = 999
     if age > 90:
         raise HTTPException(status_code=409, detail="Evidence is stale; review provider terms again")
+    if not opportunity.terms_verified:
+        raise HTTPException(status_code=409, detail="Terms must be verified before activation")
     opportunity.status = "active"
     session.add(opportunity)
     session.add(AuditEvent(event_type="opportunity_activated", entity_type="opportunity", entity_id=opportunity_id,
@@ -236,6 +245,8 @@ def add_opportunity_evidence(opportunity_id: int, payload: OpportunityEvidenceCr
         raise HTTPException(status_code=404, detail="Opportunity not found")
     if payload.reviewed_on.date() > date.today():
         raise HTTPException(status_code=422, detail="reviewed_on cannot be in the future")
+    if not str(payload.evidence_url).startswith("https://"):
+        raise HTTPException(status_code=422, detail="official evidence URL must use HTTPS")
     fee, reward, minutes, approval = map(float, (payload.payout_fee_percent, payload.average_reward, payload.estimated_task_minutes, payload.approval_rate_percent))
     if fee > 100 or approval > 100:
         raise HTTPException(status_code=422, detail="fee and approval rate must be between 0 and 100")
