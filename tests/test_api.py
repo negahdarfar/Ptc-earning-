@@ -117,3 +117,25 @@ def test_product_price_must_be_numeric(client):
     payload = {"title": "Useful Template", "category": "template",
         "short_description": "A useful downloadable template.", "price_amount": "nine"}
     assert client.post("/products", json=payload, headers=auth()).status_code == 422
+
+
+
+def test_opportunity_catalog_includes_reviewed_manual_sources_but_not_unreviewed(client):
+    base = {"category": "ptc", "platform_url": "https://example.com",
+            "country_eligibility": "unknown", "official_api": False,
+            "terms_verified": True, "status": "active"}
+    assert client.post("/opportunities", json={"name": "Manual PTC", **base}, headers=auth()).status_code == 201
+    unreviewed = {**base, "name": "Unreviewed PTC", "terms_verified": False}
+    assert client.post("/opportunities", json=unreviewed, headers=auth()).status_code == 201
+    result = client.get("/opportunities/catalog?category=ptc", headers=auth())
+    assert [item["name"] for item in result.json()] == ["Manual PTC"]
+    assert client.get("/opportunities/catalog", headers=auth()).status_code == 200
+    assert client.get("/opportunities/catalog").status_code == 401
+
+
+def test_opportunity_category_filter(client):
+    for name, category in [("PTC One", "ptc"), ("Task One", "microtask")]:
+        payload = {"name": name, "category": category, "platform_url": "https://example.com"}
+        assert client.post("/opportunities", json=payload, headers=auth()).status_code == 201
+    result = client.get("/opportunities?category=ptc", headers=auth())
+    assert [item["name"] for item in result.json()] == ["PTC One"]
