@@ -22,7 +22,8 @@ docker compose up --build
 ```
 Open:
 - API: http://localhost:8000
-- Dashboard: http://localhost:8000/dashboard\n- Interactive API docs: http://localhost:8000/docs
+- Dashboard: http://localhost:8000/dashboard
+- Interactive API docs: http://localhost:8000/docs
 - Health: http://localhost:8000/health
 
 Without Docker:
