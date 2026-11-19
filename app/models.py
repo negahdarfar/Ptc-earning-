@@ -31,6 +31,15 @@ class RevenueEntry(SQLModel, table=True):
     notes: str = ""
     recorded_at: datetime = Field(default_factory=utc_now)
 
+class ExpenseEntry(SQLModel, table=True):
+    """Track real operating costs separately from revenue."""
+    id: Optional[int] = Field(default=None, primary_key=True)
+    source_name: str = Field(index=True)
+    amount: str
+    currency: str = Field(default="USD", index=True)
+    status: str = Field(default="paid", index=True)
+    notes: str = ""
+    recorded_at: datetime = Field(default_factory=utc_now)
 
 class DigitalProduct(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
