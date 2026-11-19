@@ -63,17 +63,13 @@ EarnOrbit can catalog worldwide source categories such as `ptc`, `gpt`, `offerwa
 ## Opportunity discovery
 The recommendation endpoint is deliberately conservative: an item must be marked active, have verified current terms, and use an official API. A country-specific query accepts only an explicit country code or `GLOBAL`; unknown eligibility is excluded. The ranking is a review-priority score, not an earnings forecast. See `docs/opportunity-review-policy.md` before approving a connector.
 
-## Operator country profile
+## Privacy-conscious eligibility and connectors
 
-The initial operator profile is Iran (`IR`) for both residence and identity verification, as explicitly provided by the operator. Review opportunities with `country=IR`; never infer eligibility from IP location or crypto payout support. Unknown or unverified eligibility remains pending and is excluded from recommendations. See [docs/iran-eligibility-policy.md](docs/iran-eligibility-policy.md) for mandatory review rules and examples of restricted services.
+The operator's personal residence, identity documents, and verification profile are not published in this repository. Each opportunity is evaluated against the provider's current official terms for the user's actual circumstances. Unknown or conflicting eligibility remains pending; never infer eligibility from IP, VPN, device location, or payout wallet.
 
-## Official connector framework
+The connector framework uses auditable manifests and an in-memory registry. Connectors are disabled by default. Enabling one requires an official HTTPS API, HTTPS terms URL, a dated terms review, a positive rate limit, and an explicit supported-country declaration. Runtime country filtering is applied only when the operator selects a country profile. Candidate data is untrusted and is never auto-approved. The framework contains no live platform adapters and makes no external network calls.
 
-The `app/connectors` package defines auditable connector manifests, a typed official-API interface, and an in-memory registry. Connectors are disabled by default. Enabling one requires an official HTTPS API, HTTPS terms URL, a dated terms review, an explicit `IR` or `GLOBAL` country declaration, and a positive rate limit. Candidate data returned by connectors is untrusted and is never auto-approved. The framework currently contains no live platform adapters and makes no external network calls. See [Iran eligibility policy](docs/iran-eligibility-policy.md).
-
-## Iran country exclusions
-
-The connector manifest supports explicit excluded-country codes; an exclusion overrides even a `GLOBAL` declaration. See [known ineligible platforms for Iran](docs/known-ineligible-platforms-ir.md). This list records first-party restrictions and is not a complete legal or sanctions review.
+See [opportunity review policy](docs/opportunity-review-policy.md) and [profitability roadmap](docs/profitability-roadmap.md).
 
 ## Digital product workshop
 
