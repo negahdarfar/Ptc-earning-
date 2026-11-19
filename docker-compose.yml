@@ -7,6 +7,7 @@ services:
     environment:
       DATABASE_URL: sqlite:////data/earnorbit.db
       ENVIRONMENT: production
+      EARNORBIT_API_TOKEN: ${EARNORBIT_API_TOKEN:?Set EARNORBIT_API_TOKEN in the host environment or .env file}
     volumes:
       - earnorbit_data:/data
     restart: unless-stopped
