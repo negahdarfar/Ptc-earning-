@@ -11,7 +11,8 @@ from .database import create_db_and_tables, get_session
 from .models import Opportunity, RevenueEntry, ExpenseEntry, DigitalProduct, OpportunityEvidence, AuditEvent
 from .schemas import (
     OpportunityCreate, OpportunityRead, RevenueCreate, RevenueRead,
-    ExpenseCreate, ExpenseRead, DigitalProductCreate, DigitalProductRead,\n    OpportunityEvidenceCreate, OpportunityEvidenceRead,
+    ExpenseCreate, ExpenseRead, DigitalProductCreate, DigitalProductRead,
+    OpportunityEvidenceCreate, OpportunityEvidenceRead,
 )
 from .services import (
     list_opportunities, list_revenue, list_expenses, build_summary,
