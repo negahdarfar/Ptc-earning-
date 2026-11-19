@@ -6,59 +6,57 @@ EarnOrbit is an open-source, modular platform for discovering and tracking legit
 > **Important:** EarnOrbit does not generate guaranteed income. Each platform has its own eligibility, country, identity-verification, payout, and API rules. Use only official APIs and explicitly permitted integrations. No fake clicks, automated ad views, CAPTCHA bypass, or traffic manipulation.
 
 ## MVP status
-- [x] FastAPI service
-- [x] SQLite persistence
-- [x] Opportunity registry and filtering
-- [x] Revenue ledger and profit summary
-- [x] API key-free local development
-- [x] Docker deployment
+- [x] FastAPI service and SQLite persistence
+- [x] Opportunity registry and revenue ledger
+- [x] Revenue summary and responsive dashboard
+- [x] Bearer-token protection for private API endpoints
+- [x] Production startup fails closed if the API token is missing
+- [x] Docker Compose requires an externally supplied API token
 - [ ] Verified platform connectors
-- [ ] User authentication and multi-user permissions
+- [ ] Multi-user accounts and role-based permissions
 - [ ] Payout integrations (official APIs only)
 
-## Quick start
-```bash
-docker compose up --build
-```
-Open:
-- API: http://localhost:8000
-- Dashboard: http://localhost:8000/dashboard
-- Interactive API docs: http://localhost:8000/docs
-- Health: http://localhost:8000/health
+## Secure Docker start
+Create a local .env file (it is gitignored) containing a long random secret:
 
-Without Docker:
-```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-uvicorn app.main:app --reload
-```
+    EARNORBIT_API_TOKEN=replace-with-a-long-random-secret
+
+Then run:
+
+    docker compose up --build -d
+
+Open the dashboard at http://localhost:8000/dashboard, API docs at http://localhost:8000/docs, and health check at http://localhost:8000/health.
+
+Enter the same token in the dashboard API access section. The browser stores it in session storage for the current tab only. Do not use plain HTTP over an untrusted network; put the service behind HTTPS before remote access.
+
+## Local development
+    python -m venv .venv
+    source .venv/bin/activate
+    pip install -r requirements.txt
+    export EARNORBIT_API_TOKEN='your-long-random-local-secret'
+    uvicorn app.main:app --reload
 
 ## Core API
-- `GET /health` — service status
-- `GET /opportunities` — list opportunities
-- `POST /opportunities` — add an opportunity
-- `GET /revenue` — revenue ledger
-- `POST /revenue` — record confirmed revenue
-- `GET /summary` — totals and net profit
+All endpoints except GET / and GET /health require the Authorization header in this format:
 
-All monetary values are stored as decimal strings and include a currency code. Revenue records should represent actual confirmed amounts, not projections.
+    Authorization: Bearer YOUR_EARNORBIT_API_TOKEN
 
-## Architecture
-```
-app/
-  main.py          FastAPI routes
-  database.py      SQLite setup
-  models.py        SQLModel tables
-  schemas.py       API validation
-  services.py      business logic
-```
+- GET /opportunities — list opportunities
+- POST /opportunities — add an opportunity
+- GET /revenue — revenue ledger
+- POST /revenue — record revenue
+- GET /summary — totals by currency
+
+## Tests
+    pip install pytest httpx
+    pytest
 
 ## Safety and security
 - Never commit private keys, passwords, API tokens, or wallet seed phrases.
-- Keep secrets in environment variables.
+- Keep secrets in environment variables or an ignored local .env file.
+- Production refuses to start without EARNORBIT_API_TOKEN.
+- Use HTTPS before exposing the service to the internet.
 - This MVP records crypto payout information; it does not custody funds or sign transactions.
-- Enable authentication and HTTPS before exposing the service publicly.
 - Verify each platform's current terms and country restrictions before connecting it.
 
 ## License
