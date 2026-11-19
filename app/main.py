@@ -10,7 +10,7 @@ from sqlmodel import Session, select
 from .database import create_db_and_tables, get_session
 from .models import Opportunity, RevenueEntry, DigitalProduct
 from .schemas import OpportunityCreate, OpportunityRead, RevenueCreate, RevenueRead, DigitalProductCreate, DigitalProductRead
-from .services import list_opportunities, list_revenue, build_summary
+from .services import list_opportunities, list_revenue, build_summary, list_catalog_opportunities
 from .discovery import recommend_opportunities
 
 
@@ -67,8 +67,14 @@ def create_opportunity(payload: OpportunityCreate, session: Session = Depends(ge
 
 
 @app.get("/opportunities", response_model=list[OpportunityRead], dependencies=[Depends(require_api_token)])
-def get_opportunities(status: str | None = Query(default=None), session: Session = Depends(get_session)):
-    return list_opportunities(session, status)
+def get_opportunities(status: str | None = Query(default=None), category: str | None = Query(default=None, min_length=2, max_length=60), session: Session = Depends(get_session)):
+    return list_opportunities(session, status, category)
+
+
+@app.get("/opportunities/catalog", response_model=list[OpportunityRead], dependencies=[Depends(require_api_token)])
+def get_opportunity_catalog(category: str | None = Query(default=None, min_length=2, max_length=60), limit: int = Query(default=100, ge=1, le=250), session: Session = Depends(get_session)):
+    """Reviewed catalog for manual and API-enabled sources; listing never authorizes automation."""
+    return list_catalog_opportunities(session, category, limit)
 
 
 @app.post("/products", response_model=DigitalProductRead, status_code=201, dependencies=[Depends(require_api_token)])
