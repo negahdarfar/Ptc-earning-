@@ -65,3 +65,26 @@ class DigitalProductRead(DigitalProductCreate):
     created_at: datetime
     class Config:
         from_attributes = True
+
+
+class OpportunityEvidenceCreate(BaseModel):
+    evidence_url: HttpUrl
+    reviewed_on: datetime
+    country_eligibility: str = Field(default="unknown", min_length=2, max_length=120)
+    kyc_summary: str = Field(default="unknown", max_length=500)
+    payout_method: str = Field(default="unknown", max_length=80)
+    payout_currency: str = Field(default="USD", min_length=2, max_length=10)
+    minimum_payout: str = Field(default="unknown", max_length=40)
+    payout_fee_percent: str = Field(default="0", pattern=r"^\d+(\.\d{1,4})?$")
+    average_reward: str = Field(default="0", pattern=r"^\d+(\.\d{1,8})?$")
+    estimated_task_minutes: str = Field(default="0", pattern=r"^\d+(\.\d{1,4})?$")
+    approval_rate_percent: str = Field(default="0", pattern=r"^\d+(\.\d{1,4})?$")
+    reviewer_notes: str = Field(default="", max_length=2000)
+
+
+class OpportunityEvidenceRead(OpportunityEvidenceCreate):
+    id: int
+    opportunity_id: int
+    created_at: datetime
+    class Config:
+        from_attributes = True
