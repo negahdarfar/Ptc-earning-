@@ -82,3 +82,38 @@ def test_unknown_country_is_not_assumed_global(client):
     result = client.get("/opportunities/recommended?country=DE", headers=auth())
     assert result.status_code == 200
     assert result.json() == []
+
+
+def test_product_catalog_requires_auth(client):
+    assert client.get("/products").status_code == 401
+    assert client.post("/products", json={"title": "Useful Template", "category": "template",
+        "short_description": "A useful downloadable template."}).status_code == 401
+
+
+def test_create_and_list_digital_product_draft(client):
+    payload = {"title": "Trading Journal Template", "category": "template", "language": "en",
+        "short_description": "A structured journal for reviewing trades.",
+        "full_description": "Editable spreadsheet template for personal trade reviews.",
+        "price_amount": "9.99", "price_currency": "USD", "status": "draft"}
+    created = client.post("/products", json=payload, headers=auth())
+    assert created.status_code == 201
+    assert created.json()["title"] == payload["title"]
+    listed = client.get("/products?status=draft", headers=auth())
+    assert listed.status_code == 200
+    assert len(listed.json()) == 1
+
+
+def test_ready_product_requires_rights_and_asset_url(client):
+    payload = {"title": "Original Guide", "category": "ebook",
+        "short_description": "An original guide for learning.",
+        "status": "ready", "rights_confirmed": False,
+        "asset_url": "https://example.com/file.pdf"}
+    assert client.post("/products", json=payload, headers=auth()).status_code == 422
+    payload["rights_confirmed"] = True
+    assert client.post("/products", json=payload, headers=auth()).status_code == 201
+
+
+def test_product_price_must_be_numeric(client):
+    payload = {"title": "Useful Template", "category": "template",
+        "short_description": "A useful downloadable template.", "price_amount": "nine"}
+    assert client.post("/products", json=payload, headers=auth()).status_code == 422
