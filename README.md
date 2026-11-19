@@ -62,6 +62,10 @@ The initial operator profile is Iran (`IR`) for both residence and identity veri
 
 The `app/connectors` package defines auditable connector manifests, a typed official-API interface, and an in-memory registry. Connectors are disabled by default. Enabling one requires an official HTTPS API, HTTPS terms URL, a dated terms review, an explicit `IR` or `GLOBAL` country declaration, and a positive rate limit. Candidate data returned by connectors is untrusted and is never auto-approved. The framework currently contains no live platform adapters and makes no external network calls. See [Iran eligibility policy](docs/iran-eligibility-policy.md).
 
+## Iran country exclusions
+
+The connector manifest supports explicit excluded-country codes; an exclusion overrides even a `GLOBAL` declaration. See [known ineligible platforms for Iran](docs/known-ineligible-platforms-ir.md). This list records first-party restrictions and is not a complete legal or sanctions review.
+
 ## Safety and security
 - Never commit private keys, passwords, API tokens, or wallet seed phrases.
 - Keep secrets in environment variables or an ignored local .env file.
