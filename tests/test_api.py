@@ -285,12 +285,13 @@ def test_curated_source_catalog_seeds_once_without_overwriting_reviews(tmp_path)
     engine = create_engine(f"sqlite:///{tmp_path / 'source-seed.db'}")
     SQLModel.metadata.create_all(engine)
     with Session(engine) as session:
-        assert seed_initial_source_leads(session) == 6
+        from app.source_catalog import INITIAL_SOURCE_LEADS
+        expected_keys = {item["platform_key"] for item in INITIAL_SOURCE_LEADS}
+        assert len(expected_keys) == 30
+        assert seed_initial_source_leads(session) == 30
         assert seed_initial_source_leads(session) == 0
         leads = session.exec(select(SourceLead)).all()
-        assert {lead.platform_key for lead in leads} == {
-            "upwork", "fiverr", "gumroad", "amazon-associates", "clickworker", "prolific"
-        }
+        assert {lead.platform_key for lead in leads} == expected_keys
         assert all(lead.review_status == "new" for lead in leads)
         assert all(lead.country_eligibility == "unknown" for lead in leads)
     engine.dispose()
