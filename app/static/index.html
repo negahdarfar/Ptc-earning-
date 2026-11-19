@@ -21,7 +21,7 @@
 <div class="card"><h2>Add opportunity</h2>
 <form id="oppForm">
 <input name="name" placeholder="Platform / opportunity name" required>
-<input name="category" placeholder="Category (affiliate, offerwall, microtask…)" required>
+<input name="category" placeholder="Category (ptc, gpt, offerwall, microtask, survey, affiliate…)" required>
 <input name="platform_url" type="url" placeholder="Official website URL" required>
 <input name="country_eligibility" placeholder="Eligible countries (or unknown)">
 <input name="payout_method" placeholder="Payout method (or unknown)">
@@ -42,7 +42,7 @@
 <button>Save revenue record</button></form>
 </div></section>
 <section class="columns">
-<div class="card"><h2>Opportunities</h2><div id="opps" class="muted">Loading…</div></div>
+<div class="card"><h2>Global opportunity catalog</h2><p class="muted">Reviewed active sources, including manual-only PTC and reward sites. Catalog listing does not mean automated clicks are permitted.</p><div id="opps" class="muted">Loading…</div></div>
 <div class="card"><h2>Revenue ledger</h2><div id="revs" class="muted">Loading…</div></div>
 </section>
 <section class="columns">
@@ -75,10 +75,10 @@ function formObj(form){return Object.fromEntries(new FormData(form).entries())}
 function showMsg(s,bad=false){$("message").textContent=s;$("message").className=bad?"error":""}
 async function refresh(){
  try{
- const [summary,opps,revs,products]=await Promise.all([api("/summary"),api("/opportunities"),api("/revenue"),api("/products")]);
+ const [summary,opps,revs,products,catalog]=await Promise.all([api("/summary"),api("/opportunities"),api("/revenue"),api("/products"),api("/opportunities/catalog")]);
  const currencies=Object.entries(summary.confirmed_revenue_by_currency||{}).map(([c,v])=>c+" "+v).join(" · ")||"0";
  $("confirmed").textContent=currencies;$("confirmedCount").textContent=summary.confirmed_entries;$("pendingCount").textContent=summary.pending_entries;$("opCount").textContent=opps.length;
- $("opps").innerHTML=opps.length?opps.map(x=>'<div class="item"><b>'+esc(x.name)+'</b> <span class="tag">'+esc(x.status)+'</span><div class="muted">'+esc(x.category)+' · '+esc(x.payout_method)+'</div><a href="'+esc(x.platform_url)+'" target="_blank" rel="noopener">Official site</a></div>').join(""):"No opportunities yet.";
+ $("opps").innerHTML=catalog.length?catalog.map(x=>'<div class="item"><b>'+esc(x.name)+'</b> <span class="tag">'+esc(x.status)+'</span><div class="muted">'+esc(x.category)+' · '+esc(x.payout_method)+'</div><a href="'+esc(x.platform_url)+'" target="_blank" rel="noopener">Official site</a></div>').join(""):"No reviewed sources yet. Add a source and mark its terms as verified and status active.";
  $("products").innerHTML=products.length?products.map(x=>['<div class="item"><b>',esc(x.title),'</b> <span class="tag">',esc(x.status),'</span><div class="muted">',esc(x.category),' · ',esc(x.price_amount),' ',esc(x.price_currency),'</div><div class="muted">',esc(x.short_description),'</div></div>'].join("")).join(""):"No digital products yet.";
  $("revs").innerHTML=revs.length?revs.map(x=>'<div class="item"><b>'+esc(x.amount)+' '+esc(x.currency)+'</b> · '+esc(x.source_name)+' <span class="tag">'+esc(x.status)+'</span><div class="muted">'+new Date(x.recorded_at).toLocaleString()+'</div></div>').join(""):"No revenue records yet.";
  }catch(e){showMsg("Could not load dashboard: "+e.message,true)}
