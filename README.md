@@ -77,7 +77,7 @@ The operator's personal residence, identity documents, and verification profile 
 
 The connector framework uses auditable manifests and an in-memory registry. Connectors are disabled by default. Enabling one requires an official HTTPS API, HTTPS terms URL, a dated terms review, a positive rate limit, and an explicit supported-country declaration. Runtime country filtering is applied only when the operator selects a country profile. Candidate data is untrusted and is never auto-approved. The framework contains no live platform adapters and makes no external network calls.
 
-See [opportunity review policy](docs/opportunity-review-policy.md), [initial source research](docs/initial-source-research.md), and [profitability roadmap](docs/profitability-roadmap.md).
+See [opportunity review policy](docs/opportunity-review-policy.md), [opportunity intelligence architecture](docs/opportunity-intelligence-architecture.md), [initial source research](docs/initial-source-research.md), and [profitability roadmap](docs/profitability-roadmap.md).
 
 ## Digital product workshop
 
