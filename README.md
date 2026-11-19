@@ -46,6 +46,10 @@ All endpoints except GET / and GET /health require the Authorization header in t
 
 - GET /opportunities — list opportunities (optional `category` and `status` filters)
 - GET /opportunities/catalog — reviewed active sources, including manual-only PTC/GPT sources (not an automation permission)
+- POST /opportunities/{id}/evidence — record dated official evidence, payout terms, task economics, and approval rate
+- GET /opportunities/{id}/evidence — view evidence history
+- GET /opportunities/ranked — rank opportunities by estimated approved net hourly yield
+- GET /audit — recent append-only audit events
 - POST /opportunities — add an opportunity
 - GET /revenue — revenue ledger
 - POST /revenue — record revenue
@@ -63,6 +67,8 @@ All endpoints except GET / and GET /health require the Authorization header in t
 EarnOrbit can catalog worldwide source categories such as `ptc`, `gpt`, `offerwall`, `microtask`, `survey`, `affiliate`, and `crypto_rewards`. Use `GET /opportunities/catalog?category=ptc` to view active entries whose terms have been reviewed. This catalog supports manual-only sites even when they do not publish an official API. A catalog entry is not proof of earnings, global eligibility, or permission to automate activity. Respect each provider's current rules; ad views, clicks, surveys, and tasks may only be automated where the provider explicitly authorizes it. Never simulate human engagement.
 
 ## Opportunity discovery
+Evidence records store an official evidence URL, review date, eligibility scope, verification summary, payout method, minimum payout, fee, average task reward, estimated task duration, and approval rate. The ranked endpoint computes an estimated net hourly yield only when the inputs are complete. Estimates are not realized earnings; compare them with actual accepted work and cash-outs. Important changes are written to an append-only audit table.
+
 The recommendation endpoint is deliberately conservative: an item must be marked active, have verified current terms, and use an official API. A country-specific query accepts only an explicit country code or `GLOBAL`; unknown eligibility is excluded. The ranking is a review-priority score, not an earnings forecast. See `docs/opportunity-review-policy.md` before approving a connector.
 
 ## Privacy-conscious eligibility and connectors
