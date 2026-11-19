@@ -23,7 +23,7 @@ class OpportunityRead(OpportunityCreate):
 
 class RevenueCreate(BaseModel):
     source_name: str = Field(min_length=2, max_length=120)
-    amount: str = Field(pattern=r"^\d+(\.\d{1,8})?$")
+    amount: str = Field(pattern=r"^\\d+(\\.\\d{1,8})?$")
     currency: str = Field(default="USD", min_length=2, max_length=10)
     status: str = "pending"
     payout_reference: str = ""
@@ -35,6 +35,18 @@ class RevenueRead(RevenueCreate):
     class Config:
         from_attributes = True
 
+class ExpenseCreate(BaseModel):
+    source_name: str = Field(min_length=2, max_length=120)
+    amount: str = Field(pattern=r"^\\d+(\\.\\d{1,8})?$")
+    currency: str = Field(default="USD", min_length=2, max_length=10)
+    status: str = "paid"
+    notes: str = ""
+
+class ExpenseRead(ExpenseCreate):
+    id: int
+    recorded_at: datetime
+    class Config:
+        from_attributes = True
 
 class DigitalProductCreate(BaseModel):
     title: str = Field(min_length=3, max_length=160)
@@ -42,7 +54,7 @@ class DigitalProductCreate(BaseModel):
     language: str = Field(default="en", min_length=2, max_length=12)
     short_description: str = Field(min_length=10, max_length=500)
     full_description: str = Field(default="", max_length=10000)
-    price_amount: str = Field(default="0", pattern=r"^\d+(\.\d{1,8})?$")
+    price_amount: str = Field(default="0", pattern=r"^\\d+(\\.\\d{1,8})?$")
     price_currency: str = Field(default="USD", min_length=2, max_length=10)
     asset_url: HttpUrl | None = None
     rights_confirmed: bool = False
