@@ -205,3 +205,13 @@ def test_evidence_rejects_invalid_fee_and_missing_opportunity(client):
     created = client.post("/opportunities", json={"name":"Sample","category":"ptc","platform_url":"https://example.com"}, headers=auth())
     assert created.status_code == 201
     assert client.post(f"/opportunities/{created.json()['id']}/evidence", json=evidence, headers=auth()).status_code == 422
+
+
+def test_ranked_endpoint_and_audit_log_require_auth(client):
+    assert client.get("/opportunities/ranked").status_code == 401
+    assert client.get("/audit").status_code == 401
+    created = client.post("/opportunities", json={"name":"Audit Source","category":"ptc","platform_url":"https://example.com"}, headers=auth())
+    assert created.status_code == 201
+    events = client.get("/audit", headers=auth())
+    assert events.status_code == 200
+    assert any(event["event_type"] == "opportunity_created" for event in events.json())
