@@ -58,6 +58,10 @@ The recommendation endpoint is deliberately conservative: an item must be marked
 
 The initial operator profile is Iran (`IR`) for both residence and identity verification, as explicitly provided by the operator. Review opportunities with `country=IR`; never infer eligibility from IP location or crypto payout support. Unknown or unverified eligibility remains pending and is excluded from recommendations. See [docs/iran-eligibility-policy.md](docs/iran-eligibility-policy.md) for mandatory review rules and examples of restricted services.
 
+## Official connector framework
+
+The `app/connectors` package defines auditable connector manifests, a typed official-API interface, and an in-memory registry. Connectors are disabled by default. Enabling one requires an official HTTPS API, HTTPS terms URL, a dated terms review, an explicit `IR` or `GLOBAL` country declaration, and a positive rate limit. Candidate data returned by connectors is untrusted and is never auto-approved. The framework currently contains no live platform adapters and makes no external network calls. See [Iran eligibility policy](docs/iran-eligibility-policy.md).
+
 ## Safety and security
 - Never commit private keys, passwords, API tokens, or wallet seed phrases.
 - Keep secrets in environment variables or an ignored local .env file.
