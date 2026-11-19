@@ -93,3 +93,29 @@ class WorkSession(SQLModel, table=True):
     status: str = Field(default="pending", index=True)
     started_at: datetime = Field(default_factory=utc_now, index=True)
     notes: str = ""
+
+
+class SourceLead(SQLModel, table=True):
+    """A discovered income source awaiting evidence-based human review."""
+    id: Optional[int] = Field(default=None, primary_key=True)
+    platform_key: str = Field(index=True, unique=True)
+    platform_name: str = Field(index=True)
+    category: str = Field(index=True)
+    source_url: str
+    official_terms_url: str = ""
+    source_type: str = "manual_only"
+    review_status: str = Field(default="new", index=True)
+    country_eligibility: str = "unknown"
+    payout_method: str = "unknown"
+    payout_currency: str = "unknown"
+    minimum_payout: str = "unknown"
+    official_api: bool = False
+    reviewed_on: Optional[str] = None
+    payout_fee_percent: str = "0"
+    average_reward: str = "0"
+    estimated_task_minutes: str = "0"
+    approval_rate_percent: str = "0"
+    review_notes: str = ""
+    opportunity_id: Optional[int] = Field(default=None, foreign_key="opportunity.id")
+    created_at: datetime = Field(default_factory=utc_now)
+    updated_at: datetime = Field(default_factory=utc_now)

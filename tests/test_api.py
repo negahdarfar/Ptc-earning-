@@ -215,3 +215,45 @@ def test_ranked_endpoint_and_audit_log_require_auth(client):
     events = client.get("/audit", headers=auth())
     assert events.status_code == 200
     assert any(event["event_type"] == "opportunity_created" for event in events.json())
+
+
+def test_source_intake_requires_review_before_opportunity_activation(client):
+    payload = {"platform_key": "sample-revenue-source", "platform_name": "Sample Revenue Source",
+               "category": "microtask", "source_url": "https://example.com", "source_type": "manual_only"}
+    created = client.post("/source-leads", json=payload, headers=auth())
+    assert created.status_code == 201
+    lead_id = created.json()["id"]
+    assert created.json()["review_status"] == "new"
+    assert client.get("/source-leads", headers=auth()).status_code == 200
+    assert client.post("/source-leads", json=payload, headers=auth()).status_code == 409
+    incomplete = client.post(f"/source-leads/{lead_id}/review", json={
+        "review_status": "approved", "country_eligibility": "unknown", "payout_method": "unknown",
+        "payout_currency": "unknown", "minimum_payout": "unknown"}, headers=auth())
+    assert incomplete.status_code == 422
+    reviewed = client.post(f"/source-leads/{lead_id}/review", json={
+        "review_status": "approved", "official_terms_url": "https://example.com/terms",
+        "reviewed_on": "2026-11-19T00:00:00", "country_eligibility": "GLOBAL",
+        "payout_method": "Bank transfer", "payout_currency": "USD", "minimum_payout": "10 USD",
+        "official_api": False, "review_notes": "Reviewed test fixture terms and payout documentation."
+    }, headers=auth())
+    assert reviewed.status_code == 200
+    opportunity_id = reviewed.json()["opportunity"]["id"]
+    assert reviewed.json()["opportunity"]["status"] == "pending"
+    assert client.get("/opportunities/catalog", headers=auth()).json() == []
+    activated = client.post(f"/opportunities/{opportunity_id}/activate", headers=auth())
+    assert activated.status_code == 200
+    assert activated.json()["status"] == "active"
+    assert len(client.get("/opportunities/catalog", headers=auth()).json()) == 1
+
+
+def test_source_intake_activation_rejects_stale_evidence(client):
+    created = client.post("/source-leads", json={"platform_key": "old-source", "platform_name": "Old Source",
+        "category": "research", "source_url": "https://example.com"}, headers=auth())
+    reviewed = client.post(f"/source-leads/{created.json()['id']}/review", json={
+        "review_status": "approved", "official_terms_url": "https://example.com/terms",
+        "reviewed_on": "2026-01-01T00:00:00", "country_eligibility": "GLOBAL",
+        "payout_method": "Bank", "payout_currency": "USD", "minimum_payout": "5",
+        "review_notes": "Old review fixture"}, headers=auth())
+    assert reviewed.status_code == 200
+    assert client.post(f"/opportunities/{reviewed.json()['opportunity']['id']}/activate",
+                       headers=auth()).status_code == 409

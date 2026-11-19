@@ -101,3 +101,10 @@ Use the authenticated `GET /optimizer/plan` endpoint to calculate the current mo
 
 ## Actual work-time performance
 Use authenticated `POST /work-sessions` to record minutes spent on a platform and whether the task is pending, approved, rejected, or abandoned. `GET /performance` reports approved work value per tracked hour, approval rate, pending value, and total time by platform/currency. Approved task value is not cash received; the revenue ledger remains the source of truth for paid-out income.
+
+
+## Source intake and activation workflow
+- `POST /source-leads` adds a candidate to the persistent intake queue; `GET /source-leads` lists leads.
+- `POST /source-leads/{id}/review` records a human decision. Approval requires a dated official terms URL, explicit `GLOBAL` or ISO-2 eligibility, known payout method/currency/minimum, and reviewer notes. Approved leads create a pending opportunity with a dated evidence record.
+- `POST /opportunities/{id}/activate` is a separate explicit action and requires fresh evidence, explicit eligibility, and reviewed payout details. Manual-only sources can be catalogued; automated recommendation still requires an official API.
+- The intake queue is not a statement that any provider accepts the operator or supports a particular payout route.

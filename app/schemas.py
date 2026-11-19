@@ -105,3 +105,54 @@ class WorkSessionRead(WorkSessionCreate):
     started_at: datetime
     class Config:
         from_attributes = True
+
+
+class SourceLeadCreate(BaseModel):
+    platform_key: str = Field(min_length=2, max_length=80, pattern=r"^[a-z0-9][a-z0-9-]*$")
+    platform_name: str = Field(min_length=2, max_length=120)
+    category: str = Field(min_length=2, max_length=60)
+    source_url: HttpUrl
+    source_type: str = Field(default="manual_only", pattern=r"^(manual_only|official_api|affiliate|digital_product|client_services|microtask|research)$")
+    review_notes: str = Field(default="", max_length=2000)
+
+
+class SourceLeadRead(SourceLeadCreate):
+    id: int
+    official_terms_url: str
+    review_status: str
+    country_eligibility: str
+    payout_method: str
+    payout_currency: str
+    minimum_payout: str
+    official_api: bool
+    reviewed_on: str | None
+    payout_fee_percent: str
+    average_reward: str
+    estimated_task_minutes: str
+    approval_rate_percent: str
+    opportunity_id: int | None
+    created_at: datetime
+    updated_at: datetime
+    class Config:
+        from_attributes = True
+
+
+class SourceLeadReview(BaseModel):
+    review_status: str = Field(pattern=r"^(researching|needs_operator|rejected|approved)$")
+    official_terms_url: HttpUrl | None = None
+    reviewed_on: datetime | None = None
+    country_eligibility: str = Field(default="unknown", min_length=2, max_length=120)
+    payout_method: str = Field(default="unknown", max_length=80)
+    payout_currency: str = Field(default="unknown", min_length=2, max_length=10)
+    minimum_payout: str = Field(default="unknown", max_length=40)
+    official_api: bool = False
+    payout_fee_percent: str = Field(default="0", pattern=r"^\d+(\.\d{1,4})?$")
+    average_reward: str = Field(default="0", pattern=r"^\d+(\.\d{1,8})?$")
+    estimated_task_minutes: str = Field(default="0", pattern=r"^\d+(\.\d{1,4})?$")
+    approval_rate_percent: str = Field(default="0", pattern=r"^\d+(\.\d{1,4})?$")
+    review_notes: str = Field(default="", max_length=2000)
+
+
+class SourceLeadDecisionRead(BaseModel):
+    lead: SourceLeadRead
+    opportunity: OpportunityRead | None = None

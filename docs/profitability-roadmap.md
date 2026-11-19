@@ -73,3 +73,11 @@ Do not call the system production-ready until CI passes, deployment secrets are 
 - Calculate approved task value per tracked hour, task acceptance rate, pending value, rejected/abandoned time, and source-level productivity.
 - Keep approved work value separate from confirmed cash revenue to avoid overstating income.
 - Use measured performance to recalibrate estimated opportunity economics and stop spending time on low-yield sources.
+
+
+### Phase 2C — Persistent source intake and activation gates (implemented in active branch)
+- Persist candidate sources separately from approved opportunities.
+- Record source category, discovery URL, official terms URL, evidence date, explicit eligibility scope, payout method/currency/minimum, fee, estimated task reward/time, and API availability.
+- Promote a source only after a human review; promotion creates a pending opportunity and evidence history, never an active source.
+- Require a separate explicit activation action with fresh evidence and known payout details.
+- Keep manual-only opportunities visible as manual workflows while excluding them from automated API recommendations.
