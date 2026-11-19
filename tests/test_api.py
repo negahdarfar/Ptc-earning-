@@ -139,3 +139,43 @@ def test_opportunity_category_filter(client):
         assert client.post("/opportunities", json=payload, headers=auth()).status_code == 201
     result = client.get("/opportunities?category=ptc", headers=auth())
     assert [item["name"] for item in result.json()] == ["PTC One"]
+
+
+def test_expense_ledger_requires_auth_and_tracks_paid_costs(client):
+    payload = {"source_name": "Hosting", "amount": "12.50", "currency": "USD", "status": "paid"}
+    assert client.post("/expenses", json=payload).status_code == 401
+    created = client.post("/expenses", json=payload, headers=auth())
+    assert created.status_code == 201
+    assert created.json()["amount"] == "12.50"
+    assert client.get("/expenses", headers=auth()).status_code == 200
+
+
+def test_summary_reports_net_by_currency_without_mixing_currencies(client):
+    revenue = [
+        {"source_name": "Task platform", "amount": "100.00", "currency": "USD", "status": "confirmed"},
+        {"source_name": "Survey platform", "amount": "50.00", "currency": "EUR", "status": "confirmed"},
+        {"source_name": "Pending task", "amount": "900.00", "currency": "USD", "status": "pending"},
+    ]
+    for item in revenue:
+        assert client.post("/revenue", json=item, headers=auth()).status_code == 201
+    expenses = [
+        {"source_name": "Hosting", "amount": "12.50", "currency": "USD", "status": "paid"},
+        {"source_name": "Tool", "amount": "10.00", "currency": "EUR", "status": "paid"},
+        {"source_name": "Planned subscription", "amount": "5.00", "currency": "USD", "status": "planned"},
+    ]
+    for item in expenses:
+        assert client.post("/expenses", json=item, headers=auth()).status_code == 201
+
+    result = client.get("/summary", headers=auth())
+    assert result.status_code == 200
+    data = result.json()
+    assert data["confirmed_revenue_by_currency"] == {"USD": "100.00", "EUR": "50.00"}
+    assert data["paid_expenses_by_currency"] == {"USD": "12.50", "EUR": "10.00"}
+    assert data["net_profit_by_currency"] == {"EUR": "40.00", "USD": "87.50"}
+    assert data["pending_entries"] == 1
+    assert data["monthly_target"] == {"amount": "1000", "currency": "USD", "status": "aspirational_not_guaranteed"}
+
+
+def test_expense_rejects_invalid_status(client):
+    payload = {"source_name": "Hosting", "amount": "12", "currency": "USD", "status": "confirmed"}
+    assert client.post("/expenses", json=payload, headers=auth()).status_code == 422
