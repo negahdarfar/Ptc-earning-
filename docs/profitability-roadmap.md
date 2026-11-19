@@ -2,30 +2,38 @@
 
 ## Objective
 
-Build a trustworthy multi-source earning operations platform. The operator's aspirational benchmark is USD 1,000 net per month. This is a planning target, not a forecast or guarantee. The system must report verified results and must never label estimated or pending rewards as cash received.
+Build a privacy-conscious, multi-source earning operations platform. The operator's aspirational benchmark is USD 1,000 net per month. This is a planning target, not a forecast or guarantee. The system must report verified results and must never label estimated or pending rewards as cash received.
 
 ## Current verified capabilities
 
 - FastAPI service, SQLite persistence, bearer-token protected private endpoints.
 - Opportunity registry and human-reviewed catalog.
-- Conservative recommendation filter requiring active status, verified terms, official API, and explicit country eligibility.
+- Conservative recommendation filter requiring active status, verified terms, official API, and explicit platform eligibility evidence.
 - Revenue ledger with pending/confirmed/rejected states.
 - Digital-product metadata workflow.
 - Expense ledger with planned/paid/void states.
 - Currency-separated gross revenue, paid expenses, and net totals.
+
+## Privacy and identity handling
+
+- Do not display the operator's legal name, residence, identity documents, KYC status, or personal eligibility profile in public pages, catalog entries, logs, analytics, or repository documentation.
+- Collect the minimum personal information necessary. Keep any required eligibility profile private, access-controlled, and separate from public opportunity discovery.
+- Do not publish identity documents or KYC artifacts to GitHub, application logs, analytics, or ordinary database exports.
+- When a provider legally or contractually requires identity or residence verification, the user completes it directly with that provider using accurate information. The application must not falsify, conceal, or bypass required verification.
+- Public opportunity records should describe provider requirements generically (for example, "identity verification may be required") and should not reveal the operator's personal profile.
 
 ## Next implementation phases
 
 ### Phase 1 — Profit truth and auditability
 - Add expense ledger and currency-safe net profit summary (implemented in this branch).
 - Keep pending earnings separate from confirmed earnings.
-- Record platform terms evidence URL, review date, country/KYC/payout checks, and reviewer before activating any source.
+- Record platform terms evidence URL, review date, eligibility/KYC/payout requirement summary, and reviewer before activating any source.
 - Add audit events for status changes and connector enable/disable operations.
 
 ### Phase 2 — Global opportunity intelligence
 - Build source adapters only for documented public APIs, partner APIs, and explicitly permitted feeds.
-- Normalize every candidate into a common record: platform, category, countries, identity/KYC rules, payout rail, minimum payout, fees, API availability, terms URL, evidence date.
-- Keep unknown or conflicting country/payout evidence in pending review; never infer eligibility from IP or VPN.
+- Normalize every candidate into a common record: platform, category, published eligibility requirements, identity/KYC requirements, payout rail, minimum payout, fees, API availability, terms URL, evidence date.
+- Keep unknown or conflicting eligibility and payout evidence in pending review; never infer eligibility from IP, VPN, device location, or wallet location.
 - Rank by verified net yield, minimum payout, time burden, reliability evidence, and withdrawal friction. A ranking score is not a promise of income.
 
 ### Phase 3 — Permitted task operations
@@ -42,13 +50,9 @@ Build a trustworthy multi-source earning operations platform. The operator's asp
 - Multi-user roles, encrypted secret management, HTTPS deployment, backups, monitoring, rate limits, and retention controls.
 - Add an operator-configured monthly target and weekly performance review based on actual verified data.
 
-## Country and legal safeguards
-
-The current project policy uses the operator-provided Iran residence/identity profile (IR). Do not silently change this based on IP, VPN, device location, or wallet location. A platform must be checked against current first-party terms for residence, KYC documents, ongoing use, payout eligibility, and payout provider. If terms are silent, stale, or ambiguous, keep it pending. No false address, borrowed identity, VPN evasion, or nominee account.
-
 ## Economics
 
-A USD 1,000 monthly net target means approximately USD 33.33 net per calendar day. This arithmetic is only a target breakdown. Actual achievable income depends on country eligibility, accepted work volume, conversion/approval rates, time per task, fees, payout thresholds, and platform demand. PTC-only activity is unlikely to be a dependable path to this target; the product should prioritize higher-value permitted work, affiliate revenue, and original digital products when evidence supports them.
+A USD 1,000 monthly net target means approximately USD 33.33 net per calendar day. This arithmetic is only a target breakdown. Actual achievable income depends on accepted work volume, conversion/approval rates, time per task, fees, payout thresholds, provider reliability, and payout access. PTC-only activity is unlikely to be a dependable path to this target; the product should prioritize higher-value permitted work, microtasks, affiliate revenue, and original digital products when evidence supports them.
 
 ## Release gate
 
