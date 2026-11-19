@@ -37,6 +37,11 @@ def test_optimizer_reports_real_gap_and_excludes_unknown_eligibility(monkeypatch
                     "approval_rate_percent": "80",
                 })
                 assert evidence.status_code == 201
+                if scope == "GLOBAL":
+                    activated = client.post(f"/opportunities/{opportunity_id}/activate", headers=headers)
+                    assert activated.status_code == 200
+                else:
+                    assert client.post(f"/opportunities/{opportunity_id}/activate", headers=headers).status_code == 409
 
             result = client.get("/optimizer/plan?target=1000&currency=USD&hours_per_day=2", headers=headers)
             assert result.status_code == 200

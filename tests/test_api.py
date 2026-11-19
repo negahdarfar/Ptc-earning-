@@ -70,6 +70,13 @@ def test_recommendations_require_verified_active_official_api(client):
         payload = {"name": name, **base, **changes}
         response = client.post("/opportunities", json=payload, headers=auth())
         assert response.status_code == 201
+        if name == "Approved":
+            oid = response.json()["id"]
+            evidence = {"evidence_url": "https://example.com/terms", "reviewed_on": "2026-11-19T00:00:00",
+                        "country_eligibility": "GLOBAL", "payout_method": "crypto", "payout_currency": "USD",
+                        "minimum_payout": "5", "reviewer_notes": "Reviewed official provider terms"}
+            assert client.post(f"/opportunities/{oid}/evidence", json=evidence, headers=auth()).status_code == 201
+            assert client.post(f"/opportunities/{oid}/activate", headers=auth()).status_code == 200
     result = client.get("/opportunities/recommended?country=DE&crypto_only=true", headers=auth())
     assert result.status_code == 200
     assert [item["name"] for item in result.json()] == ["Approved"]
