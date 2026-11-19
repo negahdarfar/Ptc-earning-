@@ -9,6 +9,7 @@
 <body>
 <header><h1>EarnOrbit</h1><p>Global Autonomous Crypto Earning Network · MVP dashboard</p></header>
 <main class="wrap">
+<section class="card" style="margin-bottom:16px"><h2>API access</h2><p class="muted">Enter your deployment token. It is kept only in this browser tab and is never sent in the page URL.</p><div style="display:flex;gap:8px;flex-wrap:wrap"><input id="apiToken" type="password" autocomplete="off" placeholder="Bearer token" style="flex:1;min-width:220px"><button id="connectBtn" type="button" style="width:auto">Connect</button><button id="disconnectBtn" type="button" style="width:auto;background:#64708a">Disconnect</button></div><p id="authState" class="muted">Not connected</p></section>
 <div class="notice">This dashboard is an early MVP. It records opportunities and revenue; it does not execute tasks, create earnings, or send crypto. Do not expose it publicly without authentication and HTTPS.</div>
 <section class="grid">
 <div class="card"><div class="muted">Confirmed revenue</div><div class="metric" id="confirmed">—</div></div>
@@ -48,7 +49,12 @@
 </main>
 <script>
 const $=id=>document.getElementById(id);
-async function api(path,opts){const r=await fetch(path,opts);if(!r.ok)throw new Error((await r.text()).slice(0,240));return r.json()}
+let apiToken=sessionStorage.getItem("earnorbit_api_token")||"";
+$("apiToken").value=apiToken;
+function authHeaders(existing={}){return {...existing,...(apiToken?{"Authorization":"Bearer "+apiToken}:{})}}
+async function api(path,opts={}){opts.headers=authHeaders(opts.headers||{});const r=await fetch(path,opts);if(r.status===401||r.status===503){$("authState").textContent="Authentication required or token rejected.";throw new Error("Authentication failed. Enter a valid API token.")}if(!r.ok)throw new Error((await r.text()).slice(0,240));return r.json()}
+$("connectBtn").addEventListener("click",async()=>{apiToken=$("apiToken").value.trim();sessionStorage.setItem("earnorbit_api_token",apiToken);try{await refresh();$("authState").textContent="Connected";}catch(e){$("authState").textContent=e.message}});
+$("disconnectBtn").addEventListener("click",()=>{apiToken="";sessionStorage.removeItem("earnorbit_api_token");$("apiToken").value="";$("authState").textContent="Disconnected";showMsg("API token cleared from this tab.")});
 function formObj(form){return Object.fromEntries(new FormData(form).entries())}
 function showMsg(s,bad=false){$("message").textContent=s;$("message").className=bad?"error":""}
 async function refresh(){
