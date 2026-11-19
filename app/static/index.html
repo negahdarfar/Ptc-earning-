@@ -44,6 +44,7 @@
 <button>Save revenue record</button></form>
 </div></section>
 <section class="columns">
+<div class="card"><h2>Ranked by estimated net hourly yield</h2><p class="muted">Evidence-based scenario estimates, not guaranteed income. Review date and payout conditions matter.</p><div id="ranked" class="muted">Loading…</div></div>
 <div class="card"><h2>Global opportunity catalog</h2><p class="muted">Reviewed active sources, including manual-only PTC and reward sites. Catalog listing does not mean automated clicks are permitted.</p><div id="opps" class="muted">Loading…</div></div>
 <div class="card"><h2>Revenue ledger</h2><div id="revs" class="muted">Loading…</div></div>
 </section>
@@ -90,9 +91,10 @@ function formObj(form){return Object.fromEntries(new FormData(form).entries())}
 function showMsg(s,bad=false){$("message").textContent=s;$("message").className=bad?"error":""}
 async function refresh(){
  try{
- const [summary,opps,revs,products,catalog,expenses]=await Promise.all([api("/summary"),api("/opportunities"),api("/revenue"),api("/products"),api("/opportunities/catalog"),api("/expenses")]);
+ const [summary,opps,revs,products,catalog,expenses,ranked]=await Promise.all([api("/summary"),api("/opportunities"),api("/revenue"),api("/products"),api("/opportunities/catalog"),api("/expenses"),api("/opportunities/ranked")]);
  const currencies=Object.entries(summary.confirmed_revenue_by_currency||{}).map(([c,v])=>c+" "+v).join(" · ")||"0";
  $("confirmed").textContent=currencies;$("netProfit").textContent=Object.entries(summary.net_profit_by_currency||{}).map(([c,v])=>c+" "+v).join(" · ")||"0";$("confirmedCount").textContent=summary.confirmed_entries;$("pendingCount").textContent=summary.pending_entries;$("opCount").textContent=opps.length;
+ $("ranked").innerHTML=ranked.length?ranked.map(x=>'<div class="item"><b>'+esc(x.name)+'</b><div class="muted">'+esc(x.estimated_net_hourly||"Not enough data")+' '+esc(x.payout_currency)+' / estimated hour · '+esc(x.approval_rate_percent)+'% approval · reviewed '+esc(x.reviewed_on)+'</div><div class="muted">Minimum payout: '+esc(x.minimum_payout)+' · KYC: '+esc(x.kyc_summary)+'</div><a href="'+esc(x.evidence_url)+'" target="_blank" rel="noopener">Evidence</a></div>').join(""):"No evidence-backed estimates yet. Add a source evidence record through the API.";
  $("opps").innerHTML=catalog.length?catalog.map(x=>'<div class="item"><b>'+esc(x.name)+'</b> <span class="tag">'+esc(x.status)+'</span><div class="muted">'+esc(x.category)+' · '+esc(x.payout_method)+'</div><a href="'+esc(x.platform_url)+'" target="_blank" rel="noopener">Official site</a></div>').join(""):"No reviewed sources yet. Add a source and mark its terms as verified and status active.";
  $("products").innerHTML=products.length?products.map(x=>['<div class="item"><b>',esc(x.title),'</b> <span class="tag">',esc(x.status),'</span><div class="muted">',esc(x.category),' · ',esc(x.price_amount),' ',esc(x.price_currency),'</div><div class="muted">',esc(x.short_description),'</div></div>'].join("")).join(""):"No digital products yet.";
  $("expenses").innerHTML=expenses.length?expenses.map(x=>'<div class="item"><b>'+esc(x.amount)+' '+esc(x.currency)+'</b> · '+esc(x.source_name)+' <span class="tag">'+esc(x.status)+'</span><div class="muted">'+new Date(x.recorded_at).toLocaleString()+'</div></div>').join(""):"No expense records yet.";
