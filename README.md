@@ -54,6 +54,10 @@ All endpoints except GET / and GET /health require the Authorization header in t
 ## Opportunity discovery
 The recommendation endpoint is deliberately conservative: an item must be marked active, have verified current terms, and use an official API. A country-specific query accepts only an explicit country code or `GLOBAL`; unknown eligibility is excluded. The ranking is a review-priority score, not an earnings forecast. See `docs/opportunity-review-policy.md` before approving a connector.
 
+## Operator country profile
+
+The initial operator profile is Iran (`IR`) for both residence and identity verification, as explicitly provided by the operator. Review opportunities with `country=IR`; never infer eligibility from IP location or crypto payout support. Unknown or unverified eligibility remains pending and is excluded from recommendations. See [docs/iran-eligibility-policy.md](docs/iran-eligibility-policy.md) for mandatory review rules and examples of restricted services.
+
 ## Safety and security
 - Never commit private keys, passwords, API tokens, or wallet seed phrases.
 - Keep secrets in environment variables or an ignored local .env file.
