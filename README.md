@@ -13,6 +13,7 @@ EarnOrbit is an open-source, modular platform for discovering and tracking legit
 - [x] Production startup fails closed if the API token is missing
 - [x] Docker Compose requires an externally supplied API token
 - [x] Authenticated digital product catalog (draft/ready/archived)
+- [x] Reviewed global opportunity catalog for manual and API-enabled sources
 - [ ] Secure file storage and delivery
 - [ ] Verified platform connectors
 - [ ] Multi-user accounts and role-based permissions
@@ -43,7 +44,8 @@ All endpoints except GET / and GET /health require the Authorization header in t
 
     Authorization: Bearer YOUR_EARNORBIT_API_TOKEN
 
-- GET /opportunities — list opportunities
+- GET /opportunities — list opportunities (optional `category` and `status` filters)
+- GET /opportunities/catalog — reviewed active sources, including manual-only PTC/GPT sources (not an automation permission)
 - POST /opportunities — add an opportunity
 - GET /revenue — revenue ledger
 - POST /revenue — record revenue
@@ -54,6 +56,9 @@ All endpoints except GET / and GET /health require the Authorization header in t
 ## Tests
     pip install pytest httpx
     pytest
+
+## Global PTC and reward-source discovery
+EarnOrbit can catalog worldwide source categories such as `ptc`, `gpt`, `offerwall`, `microtask`, `survey`, `affiliate`, and `crypto_rewards`. Use `GET /opportunities/catalog?category=ptc` to view active entries whose terms have been reviewed. This catalog supports manual-only sites even when they do not publish an official API. A catalog entry is not proof of earnings, global eligibility, or permission to automate activity. Respect each provider's current rules; ad views, clicks, surveys, and tasks may only be automated where the provider explicitly authorizes it. Never simulate human engagement.
 
 ## Opportunity discovery
 The recommendation endpoint is deliberately conservative: an item must be marked active, have verified current terms, and use an official API. A country-specific query accepts only an explicit country code or `GLOBAL`; unknown eligibility is excluded. The ranking is a review-priority score, not an earnings forecast. See `docs/opportunity-review-policy.md` before approving a connector.
