@@ -1,6 +1,6 @@
 import os
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Depends, HTTPException, Query
+from fastapi import FastAPI, Depends, HTTPException, Query\nfrom fastapi.responses import FileResponse\nfrom pathlib import Path
 from sqlmodel import Session
 from .database import create_db_and_tables, get_session
 from .models import Opportunity, RevenueEntry
