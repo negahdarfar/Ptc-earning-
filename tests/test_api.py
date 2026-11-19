@@ -179,3 +179,29 @@ def test_summary_reports_net_by_currency_without_mixing_currencies(client):
 def test_expense_rejects_invalid_status(client):
     payload = {"source_name": "Hosting", "amount": "12", "currency": "USD", "status": "confirmed"}
     assert client.post("/expenses", json=payload, headers=auth()).status_code == 422
+
+
+def test_opportunity_evidence_and_ranked_unit_economics(client):
+    created = client.post("/opportunities", json={"name":"Task Platform","category":"microtask","platform_url":"https://example.com"}, headers=auth())
+    assert created.status_code == 201
+    oid = created.json()["id"]
+    evidence = {"evidence_url":"https://example.com/terms","reviewed_on":"2026-11-19T00:00:00",
+        "country_eligibility":"GLOBAL","kyc_summary":"Identity verification may be required",
+        "payout_method":"PayPal","payout_currency":"USD","minimum_payout":"10",
+        "payout_fee_percent":"5","average_reward":"2","estimated_task_minutes":"10",
+        "approval_rate_percent":"80","reviewer_notes":"Test evidence record"}
+    saved = client.post(f"/opportunities/{oid}/evidence", json=evidence, headers=auth())
+    assert saved.status_code == 201
+    ranked = client.get("/opportunities/ranked?country=DE", headers=auth())
+    assert ranked.status_code == 200
+    assert ranked.json()[0]["estimated_net_hourly"] == "9.12"
+    assert ranked.json()[0]["economics_status"] == "estimated_not_verified"
+    assert client.get(f"/opportunities/{oid}/evidence").status_code == 401
+
+
+def test_evidence_rejects_invalid_fee_and_missing_opportunity(client):
+    evidence = {"evidence_url":"https://example.com/terms","reviewed_on":"2026-11-19T00:00:00","payout_fee_percent":"150"}
+    assert client.post("/opportunities/999/evidence", json=evidence, headers=auth()).status_code == 404
+    created = client.post("/opportunities", json={"name":"Sample","category":"ptc","platform_url":"https://example.com"}, headers=auth())
+    assert created.status_code == 201
+    assert client.post(f"/opportunities/{created.json()['id']}/evidence", json=evidence, headers=auth()).status_code == 422
