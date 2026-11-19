@@ -30,3 +30,18 @@ class RevenueEntry(SQLModel, table=True):
     payout_reference: str = ""
     notes: str = ""
     recorded_at: datetime = Field(default_factory=utc_now)
+
+
+class DigitalProduct(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    title: str = Field(index=True, max_length=160)
+    category: str = Field(index=True, max_length=60)
+    language: str = Field(default="en", max_length=12)
+    short_description: str = Field(max_length=500)
+    full_description: str = ""
+    price_amount: str = "0"
+    price_currency: str = "USD"
+    asset_url: Optional[str] = None
+    rights_confirmed: bool = False
+    status: str = Field(default="draft", index=True)
+    created_at: datetime = Field(default_factory=utc_now)
