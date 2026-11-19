@@ -11,6 +11,7 @@ from .database import create_db_and_tables, get_session
 from .models import Opportunity, RevenueEntry
 from .schemas import OpportunityCreate, OpportunityRead, RevenueCreate, RevenueRead
 from .services import list_opportunities, list_revenue, build_summary
+from .discovery import recommend_opportunities
 
 
 @asynccontextmanager
@@ -79,6 +80,11 @@ def create_revenue(payload: RevenueCreate, session: Session = Depends(get_sessio
     session.commit()
     session.refresh(entry)
     return entry
+
+
+@app.get("/opportunities/recommended", response_model=list[OpportunityRead], dependencies=[Depends(require_api_token)])
+def get_recommended_opportunities(country: str | None = Query(default=None, min_length=2, max_length=2), crypto_only: bool = False, limit: int = Query(default=50, ge=1, le=100), session: Session = Depends(get_session)):
+    return recommend_opportunities(session, country, crypto_only, limit)
 
 
 @app.get("/revenue", response_model=list[RevenueRead], dependencies=[Depends(require_api_token)])
