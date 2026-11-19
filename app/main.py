@@ -8,16 +8,16 @@ from fastapi.responses import FileResponse
 from sqlmodel import Session, select
 
 from .database import create_db_and_tables, get_session
-from .models import Opportunity, RevenueEntry, ExpenseEntry, DigitalProduct
+from .models import Opportunity, RevenueEntry, ExpenseEntry, DigitalProduct, OpportunityEvidence, AuditEvent
 from .schemas import (
     OpportunityCreate, OpportunityRead, RevenueCreate, RevenueRead,
-    ExpenseCreate, ExpenseRead, DigitalProductCreate, DigitalProductRead,
+    ExpenseCreate, ExpenseRead, DigitalProductCreate, DigitalProductRead,\n    OpportunityEvidenceCreate, OpportunityEvidenceRead,
 )
 from .services import (
     list_opportunities, list_revenue, list_expenses, build_summary,
     list_catalog_opportunities,
 )
-from .discovery import recommend_opportunities
+from .discovery import recommend_opportunities, rank_opportunities
 
 
 @asynccontextmanager
@@ -80,6 +80,49 @@ def get_opportunities(status: str | None = Query(default=None), category: str | 
 def get_opportunity_catalog(category: str | None = Query(default=None, min_length=2, max_length=60), limit: int = Query(default=100, ge=1, le=250), session: Session = Depends(get_session)):
     """Reviewed catalog for manual and API-enabled sources; listing never authorizes automated activity."""
     return list_catalog_opportunities(session, category, limit)
+
+
+
+@app.post("/opportunities/{opportunity_id}/evidence", response_model=OpportunityEvidenceRead, status_code=201, dependencies=[Depends(require_api_token)])
+def add_opportunity_evidence(opportunity_id: int, payload: OpportunityEvidenceCreate, session: Session = Depends(get_session)):
+    opportunity = session.get(Opportunity, opportunity_id)
+    if not opportunity:
+        raise HTTPException(status_code=404, detail="Opportunity not found")
+    fee, reward, minutes, approval = map(float, (payload.payout_fee_percent, payload.average_reward, payload.estimated_task_minutes, payload.approval_rate_percent))
+    if fee > 100 or approval > 100:
+        raise HTTPException(status_code=422, detail="fee and approval rate must be between 0 and 100")
+    if reward > 0 and minutes <= 0:
+        raise HTTPException(status_code=422, detail="task minutes must be positive when reward is supplied")
+    evidence = OpportunityEvidence(opportunity_id=opportunity_id, **payload.model_dump(mode="json"))
+    evidence.evidence_url = str(payload.evidence_url)
+    session.add(evidence)
+    opportunity.country_eligibility = payload.country_eligibility
+    opportunity.payout_method = payload.payout_method
+    opportunity.payout_currency = payload.payout_currency
+    opportunity.minimum_payout = payload.minimum_payout
+    opportunity.terms_verified = True
+    session.add(AuditEvent(event_type="evidence_added", entity_type="opportunity", entity_id=opportunity_id,
+                           details="Dated evidence and unit-economics inputs recorded."))
+    session.add(opportunity)
+    session.commit()
+    session.refresh(evidence)
+    return evidence
+
+
+@app.get("/opportunities/{opportunity_id}/evidence", response_model=list[OpportunityEvidenceRead], dependencies=[Depends(require_api_token)])
+def get_opportunity_evidence(opportunity_id: int, session: Session = Depends(get_session)):
+    if not session.get(Opportunity, opportunity_id):
+        raise HTTPException(status_code=404, detail="Opportunity not found")
+    return session.exec(select(OpportunityEvidence).where(OpportunityEvidence.opportunity_id == opportunity_id)
+                        .order_by(OpportunityEvidence.reviewed_on.desc())).all()
+
+
+@app.get("/opportunities/ranked", dependencies=[Depends(require_api_token)])
+def get_ranked_opportunities(country: str | None = Query(default=None, min_length=2, max_length=2),
+                             category: str | None = Query(default=None, min_length=2, max_length=60),
+                             limit: int = Query(default=50, ge=1, le=100),
+                             session: Session = Depends(get_session)):
+    return rank_opportunities(session, country=country, category=category, limit=limit)
 
 
 @app.post("/products", response_model=DigitalProductRead, status_code=201, dependencies=[Depends(require_api_token)])
