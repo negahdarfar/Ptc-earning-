@@ -1,5 +1,5 @@
 from datetime import datetime
-from pydantic import BaseModel, Field, HttpUrl
+from pydantic import BaseModel, ConfigDict, Field, HttpUrl
 
 class OpportunityCreate(BaseModel):
     name: str = Field(min_length=2, max_length=120)
@@ -18,8 +18,7 @@ class OpportunityCreate(BaseModel):
 class OpportunityRead(OpportunityCreate):
     id: int
     created_at: datetime
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class RevenueCreate(BaseModel):
     source_name: str = Field(min_length=2, max_length=120)
@@ -32,8 +31,7 @@ class RevenueCreate(BaseModel):
 class RevenueRead(RevenueCreate):
     id: int
     recorded_at: datetime
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class ExpenseCreate(BaseModel):
     source_name: str = Field(min_length=2, max_length=120)
@@ -45,8 +43,7 @@ class ExpenseCreate(BaseModel):
 class ExpenseRead(ExpenseCreate):
     id: int
     recorded_at: datetime
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class DigitalProductCreate(BaseModel):
     title: str = Field(min_length=3, max_length=160)
@@ -63,8 +60,7 @@ class DigitalProductCreate(BaseModel):
 class DigitalProductRead(DigitalProductCreate):
     id: int
     created_at: datetime
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class OpportunityEvidenceCreate(BaseModel):
@@ -86,8 +82,7 @@ class OpportunityEvidenceRead(OpportunityEvidenceCreate):
     id: int
     opportunity_id: int
     created_at: datetime
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class WorkSessionCreate(BaseModel):
@@ -103,8 +98,7 @@ class WorkSessionCreate(BaseModel):
 class WorkSessionRead(WorkSessionCreate):
     id: int
     started_at: datetime
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class SourceLeadCreate(BaseModel):
@@ -133,8 +127,7 @@ class SourceLeadRead(SourceLeadCreate):
     opportunity_id: int | None
     created_at: datetime
     updated_at: datetime
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class SourceLeadReview(BaseModel):
