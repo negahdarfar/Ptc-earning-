@@ -8,7 +8,7 @@ EarnOrbit is an open-source, modular platform for discovering and tracking legit
 ## MVP status
 - [x] FastAPI service and SQLite persistence
 - [x] Opportunity registry and revenue ledger
-- [x] Revenue summary and responsive dashboard
+- [x] Revenue summary, expense ledger, net profit, and responsive dashboard
 - [x] Bearer-token protection for private API endpoints
 - [x] Production startup fails closed if the API token is missing
 - [x] Docker Compose requires an externally supplied API token
@@ -46,12 +46,18 @@ All endpoints except GET / and GET /health require the Authorization header in t
 
 - GET /opportunities — list opportunities (optional `category` and `status` filters)
 - GET /opportunities/catalog — reviewed active sources, including manual-only PTC/GPT sources (not an automation permission)
+- POST /opportunities/{id}/evidence — record dated official evidence, payout terms, task economics, and approval rate
+- GET /opportunities/{id}/evidence — view evidence history
+- GET /opportunities/ranked — rank opportunities by estimated approved net hourly yield
+- GET /audit — recent append-only audit events
 - POST /opportunities — add an opportunity
 - GET /revenue — revenue ledger
 - POST /revenue — record revenue
+- GET /expenses — operating expense ledger (optional status filter)
+- POST /expenses — record a planned, paid, or void expense
 - GET /products — list digital products
 - POST /products — create a digital product draft
-- GET /summary — totals by currency
+- GET /summary — confirmed gross revenue, paid expenses, and net profit by currency (currencies are never mixed)
 
 ## Tests
     pip install pytest httpx
@@ -61,19 +67,17 @@ All endpoints except GET / and GET /health require the Authorization header in t
 EarnOrbit can catalog worldwide source categories such as `ptc`, `gpt`, `offerwall`, `microtask`, `survey`, `affiliate`, and `crypto_rewards`. Use `GET /opportunities/catalog?category=ptc` to view active entries whose terms have been reviewed. This catalog supports manual-only sites even when they do not publish an official API. A catalog entry is not proof of earnings, global eligibility, or permission to automate activity. Respect each provider's current rules; ad views, clicks, surveys, and tasks may only be automated where the provider explicitly authorizes it. Never simulate human engagement.
 
 ## Opportunity discovery
+Evidence records store an official evidence URL, review date, eligibility scope, verification summary, payout method, minimum payout, fee, average task reward, estimated task duration, and approval rate. The ranked endpoint computes an estimated net hourly yield only when the inputs are complete. Estimates are not realized earnings; compare them with actual accepted work and cash-outs. Important changes are written to an append-only audit table.
+
 The recommendation endpoint is deliberately conservative: an item must be marked active, have verified current terms, and use an official API. A country-specific query accepts only an explicit country code or `GLOBAL`; unknown eligibility is excluded. The ranking is a review-priority score, not an earnings forecast. See `docs/opportunity-review-policy.md` before approving a connector.
 
-## Operator country profile
+## Privacy-conscious eligibility and connectors
 
-The initial operator profile is Iran (`IR`) for both residence and identity verification, as explicitly provided by the operator. Review opportunities with `country=IR`; never infer eligibility from IP location or crypto payout support. Unknown or unverified eligibility remains pending and is excluded from recommendations. See [docs/iran-eligibility-policy.md](docs/iran-eligibility-policy.md) for mandatory review rules and examples of restricted services.
+The operator's personal residence, identity documents, and verification profile are not published in this repository. Each opportunity is evaluated against the provider's current official terms for the user's actual circumstances. Unknown or conflicting eligibility remains pending; never infer eligibility from IP, VPN, device location, or payout wallet.
 
-## Official connector framework
+The connector framework uses auditable manifests and an in-memory registry. Connectors are disabled by default. Enabling one requires an official HTTPS API, HTTPS terms URL, a dated terms review, a positive rate limit, and an explicit supported-country declaration. Runtime country filtering is applied only when the operator selects a country profile. Candidate data is untrusted and is never auto-approved. The framework contains no live platform adapters and makes no external network calls.
 
-The `app/connectors` package defines auditable connector manifests, a typed official-API interface, and an in-memory registry. Connectors are disabled by default. Enabling one requires an official HTTPS API, HTTPS terms URL, a dated terms review, an explicit `IR` or `GLOBAL` country declaration, and a positive rate limit. Candidate data returned by connectors is untrusted and is never auto-approved. The framework currently contains no live platform adapters and makes no external network calls. See [Iran eligibility policy](docs/iran-eligibility-policy.md).
-
-## Iran country exclusions
-
-The connector manifest supports explicit excluded-country codes; an exclusion overrides even a `GLOBAL` declaration. See [known ineligible platforms for Iran](docs/known-ineligible-platforms-ir.md). This list records first-party restrictions and is not a complete legal or sanctions review.
+See [opportunity review policy](docs/opportunity-review-policy.md), [opportunity intelligence architecture](docs/opportunity-intelligence-architecture.md), [30-source global discovery catalogue](docs/global-source-discovery.md), [initial source research](docs/initial-source-research.md), and [profitability roadmap](docs/profitability-roadmap.md).
 
 ## Digital product workshop
 
@@ -89,3 +93,18 @@ The first creator workflow is available through the authenticated `/products` AP
 
 ## License
 MIT
+
+
+## Monthly target optimizer
+Use the authenticated `GET /optimizer/plan` endpoint to calculate the current month's confirmed net, remaining gap to a configurable target, required daily/hourly pace, and the hours implied by evidence-backed sources. Parameters: `target` (default 1000), `currency` (default USD), `hours_per_day` (default 2), and optional explicit `country` (two-letter code). Without a country parameter, only sources explicitly marked `GLOBAL` are considered. Opportunity ranking discounts stale or incomplete evidence. This is a planning estimate, not an earnings guarantee.
+
+
+## Actual work-time performance
+Use authenticated `POST /work-sessions` to record minutes spent on a platform and whether the task is pending, approved, rejected, or abandoned. `GET /performance` reports approved work value per tracked hour, approval rate, pending value, and total time by platform/currency. Approved task value is not cash received; the revenue ledger remains the source of truth for paid-out income.
+
+
+## Source intake and activation workflow
+- `POST /source-leads` adds a candidate to the persistent intake queue; `GET /source-leads` lists leads.
+- `POST /source-leads/{id}/review` records a human decision. Approval requires a dated official terms URL, explicit `GLOBAL` or ISO-2 eligibility, known payout method/currency/minimum, and reviewer notes. Approved leads create a pending opportunity with a dated evidence record.
+- `POST /opportunities/{id}/activate` is a separate explicit action and requires fresh evidence, explicit eligibility, and reviewed payout details. Manual-only sources can be catalogued; automated recommendation still requires an official API.
+- The intake queue is not a statement that any provider accepts the operator or supports a particular payout route. On startup, 30 curated research leads across client services, digital products, affiliate, research, and microtask categories are inserted as `new` records only; startup seeding is idempotent and never overwrites review decisions.

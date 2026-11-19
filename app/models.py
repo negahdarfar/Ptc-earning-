@@ -31,6 +31,15 @@ class RevenueEntry(SQLModel, table=True):
     notes: str = ""
     recorded_at: datetime = Field(default_factory=utc_now)
 
+class ExpenseEntry(SQLModel, table=True):
+    """Track real operating costs separately from revenue."""
+    id: Optional[int] = Field(default=None, primary_key=True)
+    source_name: str = Field(index=True)
+    amount: str
+    currency: str = Field(default="USD", index=True)
+    status: str = Field(default="paid", index=True)
+    notes: str = ""
+    recorded_at: datetime = Field(default_factory=utc_now)
 
 class DigitalProduct(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
@@ -45,3 +54,68 @@ class DigitalProduct(SQLModel, table=True):
     rights_confirmed: bool = False
     status: str = Field(default="draft", index=True)
     created_at: datetime = Field(default_factory=utc_now)
+
+
+class OpportunityEvidence(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    opportunity_id: int = Field(index=True, foreign_key="opportunity.id")
+    evidence_url: str
+    reviewed_on: str = Field(index=True)
+    country_eligibility: str = "unknown"
+    kyc_summary: str = "unknown"
+    payout_method: str = "unknown"
+    payout_currency: str = "USD"
+    minimum_payout: str = "unknown"
+    payout_fee_percent: str = "0"
+    average_reward: str = "0"
+    estimated_task_minutes: str = "0"
+    approval_rate_percent: str = "0"
+    reviewer_notes: str = ""
+    created_at: datetime = Field(default_factory=utc_now)
+
+
+class AuditEvent(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    event_type: str = Field(index=True)
+    entity_type: str = Field(index=True)
+    entity_id: int = Field(index=True)
+    details: str = ""
+    created_at: datetime = Field(default_factory=utc_now)
+
+
+class WorkSession(SQLModel, table=True):
+    """Track actual time and task outcomes separately from cash payouts."""
+    id: Optional[int] = Field(default=None, primary_key=True)
+    source_name: str = Field(index=True)
+    minutes_spent: int
+    reward_amount: str = "0"
+    currency: str = Field(default="USD", index=True)
+    status: str = Field(default="pending", index=True)
+    started_at: datetime = Field(default_factory=utc_now, index=True)
+    notes: str = ""
+
+
+class SourceLead(SQLModel, table=True):
+    """A discovered income source awaiting evidence-based human review."""
+    id: Optional[int] = Field(default=None, primary_key=True)
+    platform_key: str = Field(index=True, unique=True)
+    platform_name: str = Field(index=True)
+    category: str = Field(index=True)
+    source_url: str
+    official_terms_url: str = ""
+    source_type: str = "manual_only"
+    review_status: str = Field(default="new", index=True)
+    country_eligibility: str = "unknown"
+    payout_method: str = "unknown"
+    payout_currency: str = "unknown"
+    minimum_payout: str = "unknown"
+    official_api: bool = False
+    reviewed_on: Optional[str] = None
+    payout_fee_percent: str = "0"
+    average_reward: str = "0"
+    estimated_task_minutes: str = "0"
+    approval_rate_percent: str = "0"
+    review_notes: str = ""
+    opportunity_id: Optional[int] = Field(default=None, foreign_key="opportunity.id")
+    created_at: datetime = Field(default_factory=utc_now)
+    updated_at: datetime = Field(default_factory=utc_now)

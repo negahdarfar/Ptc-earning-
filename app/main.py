@@ -1,17 +1,28 @@
 import os
 import secrets
 from contextlib import asynccontextmanager
+from datetime import date, datetime, timezone
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Query
 from fastapi.responses import FileResponse
 from sqlmodel import Session, select
 
-from .database import create_db_and_tables, get_session
-from .models import Opportunity, RevenueEntry, DigitalProduct
-from .schemas import OpportunityCreate, OpportunityRead, RevenueCreate, RevenueRead, DigitalProductCreate, DigitalProductRead
-from .services import list_opportunities, list_revenue, build_summary, list_catalog_opportunities
-from .discovery import recommend_opportunities
+from .database import create_db_and_tables, get_session, engine
+from .models import Opportunity, RevenueEntry, ExpenseEntry, DigitalProduct, OpportunityEvidence, AuditEvent, WorkSession, SourceLead
+from .schemas import (
+    OpportunityCreate, OpportunityRead, RevenueCreate, RevenueRead,
+    ExpenseCreate, ExpenseRead, DigitalProductCreate, DigitalProductRead,
+    OpportunityEvidenceCreate, OpportunityEvidenceRead, WorkSessionCreate, WorkSessionRead, SourceLeadCreate, SourceLeadRead, SourceLeadReview, SourceLeadDecisionRead,
+)
+from .services import (
+    list_opportunities, list_revenue, list_expenses, build_summary,
+    list_catalog_opportunities,
+)
+from .discovery import recommend_opportunities, rank_opportunities
+from .optimizer import build_optimizer_plan
+from .performance import build_performance_summary
+from .source_catalog import seed_initial_source_leads
 
 
 @asynccontextmanager
@@ -19,13 +30,15 @@ async def lifespan(app: FastAPI):
     if os.getenv("ENVIRONMENT", "development").lower() == "production" and not os.getenv("EARNORBIT_API_TOKEN"):
         raise RuntimeError("EARNORBIT_API_TOKEN must be configured in production.")
     create_db_and_tables()
+    with Session(engine) as seed_session:
+        seed_initial_source_leads(seed_session)
     yield
 
 
 app = FastAPI(
     title=os.getenv("APP_NAME", "EarnOrbit"),
-    description="A modular tracker for legitimate online earning opportunities and confirmed revenue.",
-    version="0.2.0",
+    description="A modular tracker for legitimate online earning opportunities, expenses, and verified net revenue.",
+    version="0.3.0",
     lifespan=lifespan,
 )
 
@@ -42,13 +55,12 @@ def require_api_token(authorization: str | None = Header(default=None)):
 
 @app.get("/dashboard", include_in_schema=False)
 def dashboard():
-    # The shell is public; all dashboard data and write APIs require the bearer token.
     return FileResponse(Path(__file__).parent / "static" / "index.html")
 
 
 @app.get("/")
 def root():
-    return {"name": "EarnOrbit", "version": "0.2.0", "docs": "/docs", "dashboard": "/dashboard", "status": "running"}
+    return {"name": "EarnOrbit", "version": "0.3.0", "docs": "/docs", "dashboard": "/dashboard", "status": "running"}
 
 
 @app.get("/health")
@@ -60,7 +72,13 @@ def health():
 def create_opportunity(payload: OpportunityCreate, session: Session = Depends(get_session)):
     item = Opportunity(**payload.model_dump(mode="json"))
     item.platform_url = str(payload.platform_url)
+    # Intake cannot self-approve: only the evidence-backed activation endpoint can activate a source.
+    item.terms_verified = False
+    item.status = "pending"
     session.add(item)
+    session.flush()
+    session.add(AuditEvent(event_type="opportunity_created", entity_type="opportunity", entity_id=item.id,
+                           details="Opportunity intake record created."))
     session.commit()
     session.refresh(item)
     return item
@@ -73,8 +91,197 @@ def get_opportunities(status: str | None = Query(default=None), category: str | 
 
 @app.get("/opportunities/catalog", response_model=list[OpportunityRead], dependencies=[Depends(require_api_token)])
 def get_opportunity_catalog(category: str | None = Query(default=None, min_length=2, max_length=60), limit: int = Query(default=100, ge=1, le=250), session: Session = Depends(get_session)):
-    """Reviewed catalog for manual and API-enabled sources; listing never authorizes automation."""
+    """Reviewed catalog for manual and API-enabled sources; listing never authorizes automated activity."""
     return list_catalog_opportunities(session, category, limit)
+
+
+
+@app.post("/source-leads", response_model=SourceLeadRead, status_code=201, dependencies=[Depends(require_api_token)])
+def create_source_lead(payload: SourceLeadCreate, session: Session = Depends(get_session)):
+    """Add a discovered platform to intake; this does not activate or endorse it."""
+    key = payload.platform_key.strip().lower()
+    if session.exec(select(SourceLead).where(SourceLead.platform_key == key)).first():
+        raise HTTPException(status_code=409, detail="A source with this platform_key already exists")
+    lead = SourceLead(**payload.model_dump(mode="json"))
+    lead.platform_key = key
+    lead.source_url = str(payload.source_url)
+    session.add(lead)
+    session.flush()
+    session.add(AuditEvent(event_type="source_lead_created", entity_type="source_lead", entity_id=lead.id,
+                           details="Source entered intake queue; not approved or activated."))
+    session.commit()
+    session.refresh(lead)
+    return lead
+
+
+@app.get("/source-leads", response_model=list[SourceLeadRead], dependencies=[Depends(require_api_token)])
+def list_source_leads(review_status: str | None = Query(default=None),
+                      category: str | None = Query(default=None, min_length=2, max_length=60),
+                      limit: int = Query(default=100, ge=1, le=250),
+                      session: Session = Depends(get_session)):
+    statement = select(SourceLead).order_by(SourceLead.created_at.desc()).limit(limit)
+    if review_status:
+        if review_status not in {"new", "researching", "needs_operator", "approved", "rejected"}:
+            raise HTTPException(status_code=422, detail="invalid review_status")
+        statement = statement.where(SourceLead.review_status == review_status)
+    if category:
+        statement = statement.where(SourceLead.category.ilike(category.strip()))
+    return session.exec(statement).all()
+
+
+@app.post("/source-leads/{lead_id}/review", response_model=SourceLeadDecisionRead, dependencies=[Depends(require_api_token)])
+def review_source_lead(lead_id: int, payload: SourceLeadReview, session: Session = Depends(get_session)):
+    """A human review promotes a source only into pending state, never directly active."""
+    lead = session.get(SourceLead, lead_id)
+    if not lead:
+        raise HTTPException(status_code=404, detail="Source lead not found")
+    if lead.opportunity_id:
+        raise HTTPException(status_code=409, detail="This source lead already produced an opportunity")
+    if payload.reviewed_on and payload.reviewed_on.date() > date.today():
+        raise HTTPException(status_code=422, detail="reviewed_on cannot be in the future")
+    fee, approval, reward, minutes = map(float, (
+        payload.payout_fee_percent, payload.approval_rate_percent,
+        payload.average_reward, payload.estimated_task_minutes
+    ))
+    if fee > 100 or approval > 100:
+        raise HTTPException(status_code=422, detail="fee and approval rate must be between 0 and 100")
+    if reward > 0 and minutes <= 0:
+        raise HTTPException(status_code=422, detail="task minutes must be positive when reward is supplied")
+    if payload.review_status == "approved":
+        scope = payload.country_eligibility.strip().upper()
+        if not payload.official_terms_url or not payload.reviewed_on or not (
+            scope == "GLOBAL" or (len(scope) == 2 and scope.isalpha())
+        ):
+            raise HTTPException(status_code=422, detail="approval requires official terms, review date, and explicit GLOBAL or ISO-2 eligibility")
+        if any(value.strip().lower() in {"", "unknown"} for value in (
+            payload.payout_method, payload.payout_currency, payload.minimum_payout
+        )):
+            raise HTTPException(status_code=422, detail="approval requires verified payout method, currency, and minimum payout")
+        if not payload.review_notes.strip():
+            raise HTTPException(status_code=422, detail="approval requires reviewer notes")
+    for field in payload.model_fields_set:
+        value = getattr(payload, field)
+        if field == "official_terms_url":
+            setattr(lead, field, str(value) if value else "")
+        elif field == "reviewed_on":
+            setattr(lead, field, value.isoformat() if value else None)
+        else:
+            setattr(lead, field, value)
+    lead.updated_at = datetime.now(timezone.utc)
+    opportunity = None
+    if payload.review_status == "approved":
+        opportunity = Opportunity(
+            name=lead.platform_name, category=lead.category, platform_url=lead.source_url,
+            country_eligibility=lead.country_eligibility.strip().upper(),
+            payout_method=lead.payout_method, payout_currency=lead.payout_currency.upper(),
+            minimum_payout=lead.minimum_payout, official_api=lead.official_api,
+            terms_verified=True, status="pending",
+            notes="Created from reviewed source intake. Activation requires a separate explicit action. " + lead.review_notes,
+        )
+        session.add(opportunity)
+        session.flush()
+        session.add(OpportunityEvidence(
+            opportunity_id=opportunity.id, evidence_url=lead.official_terms_url,
+            reviewed_on=lead.reviewed_on, country_eligibility=lead.country_eligibility,
+            kyc_summary="Review details recorded in source intake; verify provider-specific identity requirements directly.",
+            payout_method=lead.payout_method, payout_currency=lead.payout_currency,
+            minimum_payout=lead.minimum_payout, payout_fee_percent=lead.payout_fee_percent,
+            average_reward=lead.average_reward, estimated_task_minutes=lead.estimated_task_minutes,
+            approval_rate_percent=lead.approval_rate_percent, reviewer_notes=lead.review_notes,
+        ))
+        lead.opportunity_id = opportunity.id
+        session.add(AuditEvent(event_type="source_lead_approved", entity_type="source_lead", entity_id=lead.id,
+                               details=f"Reviewed source created pending opportunity {opportunity.id}; not activated."))
+    else:
+        session.add(AuditEvent(event_type="source_lead_reviewed", entity_type="source_lead", entity_id=lead.id,
+                               details=f"Source intake status changed to {payload.review_status}."))
+    session.add(lead)
+    session.commit()
+    session.refresh(lead)
+    if opportunity:
+        session.refresh(opportunity)
+    return {"lead": lead, "opportunity": opportunity}
+
+
+@app.post("/opportunities/{opportunity_id}/activate", response_model=OpportunityRead, dependencies=[Depends(require_api_token)])
+def activate_opportunity(opportunity_id: int, session: Session = Depends(get_session)):
+    """Explicit human activation gate requiring fresh eligibility and payout evidence."""
+    opportunity = session.get(Opportunity, opportunity_id)
+    if not opportunity:
+        raise HTTPException(status_code=404, detail="Opportunity not found")
+    evidence = session.exec(select(OpportunityEvidence).where(
+        OpportunityEvidence.opportunity_id == opportunity_id
+    ).order_by(OpportunityEvidence.reviewed_on.desc())).first()
+    if not evidence:
+        raise HTTPException(status_code=409, detail="A dated official evidence record is required")
+    scope = evidence.country_eligibility.strip().upper()
+    if not (scope == "GLOBAL" or (len(scope) == 2 and scope.isalpha())):
+        raise HTTPException(status_code=409, detail="Explicit GLOBAL or ISO-2 country eligibility is required")
+    if not str(evidence.evidence_url).startswith("https://"):
+        raise HTTPException(status_code=409, detail="Official evidence must use HTTPS")
+    if any(value.strip().lower() in {"", "unknown"} for value in (evidence.payout_method, evidence.payout_currency, evidence.minimum_payout)):
+        raise HTTPException(status_code=409, detail="Payout method, currency and minimum payout must be reviewed")
+    try:
+        age = (date.today() - date.fromisoformat(evidence.reviewed_on[:10])).days
+    except ValueError:
+        age = 999
+    if age > 90:
+        raise HTTPException(status_code=409, detail="Evidence is stale; review provider terms again")
+    if not opportunity.terms_verified:
+        raise HTTPException(status_code=409, detail="Terms must be verified before activation")
+    opportunity.status = "active"
+    session.add(opportunity)
+    session.add(AuditEvent(event_type="opportunity_activated", entity_type="opportunity", entity_id=opportunity_id,
+                           details="Explicit activation after dated eligibility and payout evidence review."))
+    session.commit()
+    session.refresh(opportunity)
+    return opportunity
+
+
+@app.post("/opportunities/{opportunity_id}/evidence", response_model=OpportunityEvidenceRead, status_code=201, dependencies=[Depends(require_api_token)])
+def add_opportunity_evidence(opportunity_id: int, payload: OpportunityEvidenceCreate, session: Session = Depends(get_session)):
+    opportunity = session.get(Opportunity, opportunity_id)
+    if not opportunity:
+        raise HTTPException(status_code=404, detail="Opportunity not found")
+    if payload.reviewed_on.date() > date.today():
+        raise HTTPException(status_code=422, detail="reviewed_on cannot be in the future")
+    if not str(payload.evidence_url).startswith("https://"):
+        raise HTTPException(status_code=422, detail="official evidence URL must use HTTPS")
+    fee, reward, minutes, approval = map(float, (payload.payout_fee_percent, payload.average_reward, payload.estimated_task_minutes, payload.approval_rate_percent))
+    if fee > 100 or approval > 100:
+        raise HTTPException(status_code=422, detail="fee and approval rate must be between 0 and 100")
+    if reward > 0 and minutes <= 0:
+        raise HTTPException(status_code=422, detail="task minutes must be positive when reward is supplied")
+    evidence = OpportunityEvidence(opportunity_id=opportunity_id, **payload.model_dump(mode="json"))
+    evidence.evidence_url = str(payload.evidence_url)
+    session.add(evidence)
+    opportunity.country_eligibility = payload.country_eligibility
+    opportunity.payout_method = payload.payout_method
+    opportunity.payout_currency = payload.payout_currency
+    opportunity.minimum_payout = payload.minimum_payout
+    opportunity.terms_verified = True
+    session.add(AuditEvent(event_type="evidence_added", entity_type="opportunity", entity_id=opportunity_id,
+                           details="Dated evidence and unit-economics inputs recorded."))
+    session.add(opportunity)
+    session.commit()
+    session.refresh(evidence)
+    return evidence
+
+
+@app.get("/opportunities/{opportunity_id}/evidence", response_model=list[OpportunityEvidenceRead], dependencies=[Depends(require_api_token)])
+def get_opportunity_evidence(opportunity_id: int, session: Session = Depends(get_session)):
+    if not session.get(Opportunity, opportunity_id):
+        raise HTTPException(status_code=404, detail="Opportunity not found")
+    return session.exec(select(OpportunityEvidence).where(OpportunityEvidence.opportunity_id == opportunity_id)
+                        .order_by(OpportunityEvidence.reviewed_on.desc())).all()
+
+
+@app.get("/opportunities/ranked", dependencies=[Depends(require_api_token)])
+def get_ranked_opportunities(country: str | None = Query(default=None, min_length=2, max_length=2),
+                             category: str | None = Query(default=None, min_length=2, max_length=60),
+                             limit: int = Query(default=50, ge=1, le=100),
+                             session: Session = Depends(get_session)):
+    return rank_opportunities(session, country=country, category=category, limit=limit)
 
 
 @app.post("/products", response_model=DigitalProductRead, status_code=201, dependencies=[Depends(require_api_token)])
@@ -107,9 +314,38 @@ def create_revenue(payload: RevenueCreate, session: Session = Depends(get_sessio
         raise HTTPException(status_code=422, detail="status must be pending, confirmed, or rejected")
     entry = RevenueEntry(**payload.model_dump())
     session.add(entry)
+    session.flush()
+    session.add(AuditEvent(event_type="revenue_recorded", entity_type="revenue", entity_id=entry.id,
+                           details="Revenue ledger entry created; confirmation status is tracked separately."))
     session.commit()
     session.refresh(entry)
     return entry
+
+
+@app.get("/revenue", response_model=list[RevenueRead], dependencies=[Depends(require_api_token)])
+def get_revenue(status: str | None = Query(default=None), session: Session = Depends(get_session)):
+    return list_revenue(session, status)
+
+
+@app.post("/expenses", response_model=ExpenseRead, status_code=201, dependencies=[Depends(require_api_token)])
+def create_expense(payload: ExpenseCreate, session: Session = Depends(get_session)):
+    if payload.status not in {"planned", "paid", "void"}:
+        raise HTTPException(status_code=422, detail="status must be planned, paid, or void")
+    entry = ExpenseEntry(**payload.model_dump())
+    session.add(entry)
+    session.flush()
+    session.add(AuditEvent(event_type="expense_recorded", entity_type="expense", entity_id=entry.id,
+                           details="Expense ledger entry created."))
+    session.commit()
+    session.refresh(entry)
+    return entry
+
+
+@app.get("/expenses", response_model=list[ExpenseRead], dependencies=[Depends(require_api_token)])
+def get_expenses(status: str | None = Query(default=None), session: Session = Depends(get_session)):
+    if status and status not in {"planned", "paid", "void"}:
+        raise HTTPException(status_code=422, detail="invalid expense status")
+    return list_expenses(session, status)
 
 
 @app.get("/opportunities/recommended", response_model=list[OpportunityRead], dependencies=[Depends(require_api_token)])
@@ -117,9 +353,63 @@ def get_recommended_opportunities(country: str | None = Query(default=None, min_
     return recommend_opportunities(session, country, crypto_only, limit)
 
 
-@app.get("/revenue", response_model=list[RevenueRead], dependencies=[Depends(require_api_token)])
-def get_revenue(status: str | None = Query(default=None), session: Session = Depends(get_session)):
-    return list_revenue(session, status)
+@app.get("/audit", dependencies=[Depends(require_api_token)])
+def get_audit_events(limit: int = Query(default=100, ge=1, le=500), session: Session = Depends(get_session)):
+    """Read recent audit events; sensitive payloads and credentials are never logged."""
+    return session.exec(select(AuditEvent).order_by(AuditEvent.created_at.desc()).limit(limit)).all()
+
+
+@app.post("/work-sessions", response_model=WorkSessionRead, status_code=201, dependencies=[Depends(require_api_token)])
+def create_work_session(payload: WorkSessionCreate, session: Session = Depends(get_session)):
+    if payload.status in {"rejected", "abandoned"} and payload.reward_amount != "0":
+        raise HTTPException(status_code=422, detail="rejected or abandoned sessions cannot have a reward")
+    item = WorkSession(**payload.model_dump(exclude={"started_at"}))
+    if payload.started_at:
+        item.started_at = payload.started_at
+    session.add(item)
+    session.flush()
+    session.add(AuditEvent(event_type="work_session_recorded", entity_type="work_session", entity_id=item.id,
+                           details="Work duration and task outcome recorded; reward is not cash payout."))
+    session.commit()
+    session.refresh(item)
+    return item
+
+
+@app.get("/work-sessions", response_model=list[WorkSessionRead], dependencies=[Depends(require_api_token)])
+def get_work_sessions(source_name: str | None = Query(default=None, min_length=2, max_length=120),
+                      status: str | None = Query(default=None),
+                      session: Session = Depends(get_session)):
+    statement = select(WorkSession).order_by(WorkSession.started_at.desc())
+    if source_name:
+        statement = statement.where(WorkSession.source_name == source_name)
+    if status:
+        if status not in {"pending", "approved", "rejected", "abandoned"}:
+            raise HTTPException(status_code=422, detail="invalid work-session status")
+        statement = statement.where(WorkSession.status == status)
+    return session.exec(statement).all()
+
+
+@app.get("/performance", dependencies=[Depends(require_api_token)])
+def performance(session: Session = Depends(get_session)):
+    return build_performance_summary(session)
+
+
+@app.get("/optimizer/plan", dependencies=[Depends(require_api_token)])
+def optimizer_plan(
+    target: str = Query(default="1000", pattern=r"^\d+(\.\d{1,2})?$"),
+    currency: str = Query(default="USD", min_length=3, max_length=10),
+    hours_per_day: float = Query(default=2.0, gt=0, le=24),
+    country: str | None = Query(default=None, min_length=2, max_length=2),
+    session: Session = Depends(get_session),
+):
+    """Build a monthly target plan from confirmed net results and evidence-backed opportunities."""
+    return build_optimizer_plan(
+        session,
+        target=target,
+        currency=currency,
+        hours_per_day=hours_per_day,
+        country=country,
+    )
 
 
 @app.get("/summary", dependencies=[Depends(require_api_token)])

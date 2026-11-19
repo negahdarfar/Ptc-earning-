@@ -11,8 +11,61 @@
 <main class="wrap">
 <section class="card" style="margin-bottom:16px"><h2>API access</h2><p class="muted">Enter your deployment token. It is kept only in this browser tab and is never sent in the page URL.</p><div style="display:flex;gap:8px;flex-wrap:wrap"><input id="apiToken" type="password" autocomplete="off" placeholder="Bearer token" style="flex:1;min-width:220px"><button id="connectBtn" type="button" style="width:auto">Connect</button><button id="disconnectBtn" type="button" style="width:auto;background:#64708a">Disconnect</button></div><p id="authState" class="muted">Not connected</p></section>
 <div class="notice">This dashboard is an early MVP. It records opportunities and revenue; it does not execute tasks, create earnings, or send crypto. Do not expose it publicly without authentication and HTTPS.</div>
+
+<section class="columns">
+<div class="card"><h2>Source intake — add an income stream</h2><p class="muted">Every platform enters as a lead. It is not active until official terms, eligibility and payout are reviewed.</p>
+<form id="sourceLeadForm">
+<input name="platform_key" placeholder="Unique key e.g. platform-name" required pattern="[a-z0-9][a-z0-9-]*">
+<input name="platform_name" placeholder="Platform / source name" required>
+<input name="category" placeholder="client_services, digital_product, affiliate, microtask, research…" required>
+<input name="source_url" type="url" placeholder="Official platform URL" required>
+<select name="source_type"><option value="manual_only">Manual workflow</option><option value="official_api">Official API (not enabled)</option><option value="client_services">Client services</option><option value="digital_product">Digital products</option><option value="affiliate">Affiliate</option><option value="microtask">Microtasks</option><option value="research">Research studies</option></select>
+<textarea name="review_notes" placeholder="Why this source may be valuable / discovery notes"></textarea><button>Add to intake queue</button></form></div>
+<div class="card"><h2>Review a source lead</h2><p class="muted">Approval requires dated official terms, explicit eligibility, payout method, currency and minimum payout. Approved leads become pending opportunities, not active sources.</p>
+<form id="sourceReviewForm">
+<input name="lead_id" type="number" min="1" placeholder="Source lead ID" required>
+<select name="review_status"><option value="researching">Researching</option><option value="needs_operator">Needs operator verification</option><option value="rejected">Reject</option><option value="approved">Approve into pending queue</option></select>
+<input name="official_terms_url" type="url" placeholder="Official terms / payout rules URL">
+<input name="reviewed_on" type="datetime-local">
+<input name="country_eligibility" value="unknown" placeholder="GLOBAL or ISO-2 country code">
+<input name="payout_method" placeholder="Verified payout method">
+<input name="payout_currency" value="unknown" placeholder="Payout currency">
+<input name="minimum_payout" value="unknown" placeholder="Minimum payout">
+<select name="official_api"><option value="false">No official API verified</option><option value="true">Official API verified</option></select>
+<input name="payout_fee_percent" type="number" min="0" max="100" step="0.01" value="0" placeholder="Fee %">
+<input name="average_reward" type="number" min="0" step="0.00000001" value="0" placeholder="Average reward">
+<input name="estimated_task_minutes" type="number" min="0" step="0.01" value="0" placeholder="Task minutes">
+<input name="approval_rate_percent" type="number" min="0" max="100" step="0.01" value="0" placeholder="Approval rate %">
+<textarea name="review_notes" placeholder="Evidence summary and reviewer notes"></textarea><button>Save review decision</button></form></div>
+</section>
+<section class="card"><h2>Source intake queue</h2><div id="sourceLeads" class="muted">Connect to load source leads…</div></section>
+<section class="columns">
+<div class="card"><h2>Record work session</h2><p class="muted">Track actual minutes and task outcome. Approved rewards are not cash until paid out.</p>
+<form id="workSessionForm">
+<input name="source_name" placeholder="Platform name" required>
+<input name="minutes_spent" type="number" min="1" max="1440" step="1" placeholder="Minutes spent" required>
+<input name="reward_amount" type="number" min="0" step="0.00000001" value="0" placeholder="Approved or pending reward">
+<input name="currency" value="USD" placeholder="Currency">
+<select name="status"><option value="pending">Pending approval</option><option value="approved">Approved</option><option value="rejected">Rejected</option><option value="abandoned">Abandoned</option></select>
+<textarea name="notes" placeholder="Task notes"></textarea><button>Save work session</button>
+</form></div>
+<div class="card"><h2>Measured productivity by source</h2><div id="performance" class="muted">Connect to load tracked work sessions…</div></div>
+</section>
+<section class="card" style="margin-bottom:16px">
+<h2>Monthly $1,000 net target optimizer</h2>
+<p class="muted">Uses confirmed revenue minus paid costs this month. Opportunity rates are confidence-adjusted estimates, not guaranteed earnings. Without a country selection, only explicitly GLOBAL sources qualify.</p>
+<div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(130px,1fr));margin-bottom:10px">
+<label class="muted">Monthly net target<input id="planTarget" type="number" min="1" step="0.01" value="1000"></label>
+<label class="muted">Currency<input id="planCurrency" value="USD" maxlength="10"></label>
+<label class="muted">Available hours/day<input id="planHours" type="number" min="0.1" max="24" step="0.1" value="2"></label>
+<label class="muted">Country code (optional)<input id="planCountry" maxlength="2" placeholder="Blank = GLOBAL only"></label>
+</div>
+<button id="planRefresh" type="button">Recalculate monthly plan</button>
+<div id="optimizerPlan" class="item muted">Connect to calculate the target plan…</div>
+</section>
 <section class="grid">
 <div class="card"><div class="muted">Confirmed revenue</div><div class="metric" id="confirmed">—</div></div>
+<div class="card"><div class="muted">Net profit by currency</div><div class="metric" id="netProfit">—</div></div>
 <div class="card"><div class="muted">Confirmed entries</div><div class="metric" id="confirmedCount">—</div></div>
 <div class="card"><div class="muted">Pending entries</div><div class="metric" id="pendingCount">—</div></div>
 <div class="card"><div class="muted">Tracked opportunities</div><div class="metric" id="opCount">—</div></div>
@@ -32,6 +85,23 @@
 <textarea name="notes" placeholder="Notes / restrictions"></textarea>
 <button>Add opportunity</button></form>
 </div>
+<div class="card"><h2>Submit opportunity evidence</h2><p class="muted">Add official terms and measured task economics. Unknown values should remain unknown.</p>
+<form id="evidenceForm">
+<input name="opportunity_id" type="number" min="1" placeholder="Opportunity ID" required>
+<input name="evidence_url" type="url" placeholder="Official terms / evidence URL" required>
+<input name="reviewed_on" type="datetime-local" required>
+<input name="country_eligibility" value="unknown" placeholder="Explicit country scope or GLOBAL">
+<input name="kyc_summary" placeholder="Verification requirements">
+<input name="payout_method" placeholder="Payout method">
+<input name="payout_currency" value="USD" placeholder="Payout currency">
+<input name="minimum_payout" placeholder="Minimum payout or unknown">
+<input name="payout_fee_percent" type="number" min="0" max="100" step="0.01" value="0" placeholder="Payout fee %">
+<input name="average_reward" type="number" min="0" step="0.00000001" value="0" placeholder="Average reward per task">
+<input name="estimated_task_minutes" type="number" min="0" step="0.01" value="0" placeholder="Minutes per task">
+<input name="approval_rate_percent" type="number" min="0" max="100" step="0.01" value="0" placeholder="Approval rate %">
+<textarea name="reviewer_notes" placeholder="Evidence notes"></textarea>
+<button>Save evidence review</button>
+</form></div>
 <div class="card"><h2>Record revenue</h2>
 <form id="revForm">
 <input name="source_name" placeholder="Revenue source" required>
@@ -43,8 +113,22 @@
 <button>Save revenue record</button></form>
 </div></section>
 <section class="columns">
+<div class="card"><h2>Ranked by estimated net hourly yield</h2><p class="muted">Evidence-based scenario estimates, not guaranteed income. Review date and payout conditions matter.</p><div id="ranked" class="muted">Loading…</div></div>
 <div class="card"><h2>Global opportunity catalog</h2><p class="muted">Reviewed active sources, including manual-only PTC and reward sites. Catalog listing does not mean automated clicks are permitted.</p><div id="opps" class="muted">Loading…</div></div>
 <div class="card"><h2>Revenue ledger</h2><div id="revs" class="muted">Loading…</div></div>
+</section>
+<section class="columns">
+<div class="card"><h2>Record operating expense</h2>
+<form id="expenseForm">
+<input name="source_name" placeholder="Expense source (hosting, tools, fees…)" required>
+<input name="amount" type="number" min="0" step="0.00000001" placeholder="Amount" required>
+<input name="currency" value="USD" placeholder="Currency" required>
+<select name="status"><option value="paid">Paid</option><option value="planned">Planned</option><option value="void">Void</option></select>
+<textarea name="notes" placeholder="Notes"></textarea>
+<button>Save expense</button>
+</form>
+</div>
+<div class="card"><h2>Expense ledger</h2><div id="expenses" class="muted">Connect to load expenses…</div></div>
 </section>
 <section class="columns">
 <div class="card"><h2>Create digital product draft</h2>
@@ -76,17 +160,29 @@ function formObj(form){return Object.fromEntries(new FormData(form).entries())}
 function showMsg(s,bad=false){$("message").textContent=s;$("message").className=bad?"error":""}
 async function refresh(){
  try{
- const [summary,opps,revs,products,catalog]=await Promise.all([api("/summary"),api("/opportunities"),api("/revenue"),api("/products"),api("/opportunities/catalog")]);
+ const target=$("planTarget").value||"1000",currency=($("planCurrency").value||"USD").trim().toUpperCase(),hours=$("planHours").value||"2",country=($("planCountry").value||"").trim().toUpperCase();const planQuery=new URLSearchParams({target,currency,hours_per_day:hours});if(country)planQuery.set("country",country);
+ const [summary,opps,revs,products,catalog,expenses,ranked,plan,performance,sourceLeads]=await Promise.all([api("/summary"),api("/opportunities"),api("/revenue"),api("/products"),api("/opportunities/catalog"),api("/expenses"),api("/opportunities/ranked"),api("/optimizer/plan?"+planQuery.toString()),api("/performance"),api("/source-leads")]);
  const currencies=Object.entries(summary.confirmed_revenue_by_currency||{}).map(([c,v])=>c+" "+v).join(" · ")||"0";
- $("confirmed").textContent=currencies;$("confirmedCount").textContent=summary.confirmed_entries;$("pendingCount").textContent=summary.pending_entries;$("opCount").textContent=opps.length;
+ $("confirmed").textContent=currencies;$("netProfit").textContent=Object.entries(summary.net_profit_by_currency||{}).map(([c,v])=>c+" "+v).join(" · ")||"0";$("confirmedCount").textContent=summary.confirmed_entries;$("pendingCount").textContent=summary.pending_entries;$("opCount").textContent=opps.length;
+ $("ranked").innerHTML=ranked.length?ranked.map(x=>'<div class="item"><b>'+esc(x.name)+'</b><div class="muted">'+esc(x.estimated_net_hourly||"Not enough data")+' '+esc(x.payout_currency)+' / raw estimated hour · risk-adjusted '+esc(x.risk_adjusted_net_hourly||"N/A")+' · confidence '+esc(x.confidence_score)+'% · '+esc(x.freshness_status)+' · '+esc(x.approval_rate_percent)+'% approval · reviewed '+esc(x.reviewed_on)+'</div><div class="muted">Minimum payout: '+esc(x.minimum_payout)+' · KYC: '+esc(x.kyc_summary)+'</div><a href="'+esc(x.evidence_url)+'" target="_blank" rel="noopener">Evidence</a></div>').join(""):"No evidence-backed estimates yet. Add a source evidence record through the API.";
+ $("sourceLeads").innerHTML=sourceLeads.length?sourceLeads.map(x=>'<div class="item"><b>#'+esc(x.id)+' · '+esc(x.platform_name)+'</b> <span class="tag">'+esc(x.review_status)+'</span><div class="muted">'+esc(x.category)+' · '+esc(x.source_type)+' · country: '+esc(x.country_eligibility)+' · payout: '+esc(x.payout_method)+'</div><a href="'+esc(x.source_url)+'" target="_blank" rel="noopener">Official platform</a>'+(x.official_terms_url?' · <a href="'+esc(x.official_terms_url)+'" target="_blank" rel="noopener">Terms evidence</a>':'')+(x.opportunity_id?' · Opportunity #'+esc(x.opportunity_id):'')+'</div>').join(""):"No sources in intake queue yet.";
+ $("performance").innerHTML=performance.sources.length?performance.sources.map(x=>'<div class="item"><b>'+esc(x.source_name)+'</b> · '+esc(x.currency)+'<div class="muted">'+esc(x.approved_value_per_tracked_hour)+' approved-value / tracked hour · '+esc(x.approval_rate_percent)+'% approval · '+esc(x.minutes_spent)+' minutes</div><div class="muted">Approved: '+esc(x.approved_value_not_cash)+' · Pending: '+esc(x.pending_value_not_cash)+' · Rejected: '+esc(x.rejected_tasks)+'</div></div>').join(""):"No work sessions recorded yet.";
+ $("optimizerPlan").innerHTML='<div><b>Actual net this month:</b> '+esc(plan.actual_net_this_month)+' '+esc(plan.currency)+' · <b>Gap:</b> '+esc(plan.remaining_gap)+' '+esc(plan.currency)+'</div><div class="muted">Required pace: '+esc(plan.required_net_per_day)+' '+esc(plan.currency)+'/day · '+esc(plan.required_net_per_available_hour)+' '+esc(plan.currency)+'/available hour · Best confidence-adjusted estimate: '+esc(plan.best_confidence_adjusted_hourly_estimate)+' '+esc(plan.currency)+'/hour</div><div class="muted">Assessment: '+esc(plan.assessment)+'</div>'+ (plan.eligible_sources.length?plan.eligible_sources.map(x=>'<div class="item"><b>'+esc(x.name)+'</b> · '+esc(x.risk_adjusted_net_hourly)+' '+esc(x.currency)+'/estimated hour · '+esc(x.confidence_score)+'% confidence · hours to cover gap: '+esc(x.hours_to_cover_current_gap_at_this_rate??"N/A")+'</div>').join(""):'<div class="item">No explicitly eligible, currency-matched sources with usable evidence yet.</div>');
  $("opps").innerHTML=catalog.length?catalog.map(x=>'<div class="item"><b>'+esc(x.name)+'</b> <span class="tag">'+esc(x.status)+'</span><div class="muted">'+esc(x.category)+' · '+esc(x.payout_method)+'</div><a href="'+esc(x.platform_url)+'" target="_blank" rel="noopener">Official site</a></div>').join(""):"No reviewed sources yet. Add a source and mark its terms as verified and status active.";
  $("products").innerHTML=products.length?products.map(x=>['<div class="item"><b>',esc(x.title),'</b> <span class="tag">',esc(x.status),'</span><div class="muted">',esc(x.category),' · ',esc(x.price_amount),' ',esc(x.price_currency),'</div><div class="muted">',esc(x.short_description),'</div></div>'].join("")).join(""):"No digital products yet.";
+ $("expenses").innerHTML=expenses.length?expenses.map(x=>'<div class="item"><b>'+esc(x.amount)+' '+esc(x.currency)+'</b> · '+esc(x.source_name)+' <span class="tag">'+esc(x.status)+'</span><div class="muted">'+new Date(x.recorded_at).toLocaleString()+'</div></div>').join(""):"No expense records yet.";
  $("revs").innerHTML=revs.length?revs.map(x=>'<div class="item"><b>'+esc(x.amount)+' '+esc(x.currency)+'</b> · '+esc(x.source_name)+' <span class="tag">'+esc(x.status)+'</span><div class="muted">'+new Date(x.recorded_at).toLocaleString()+'</div></div>').join(""):"No revenue records yet.";
  }catch(e){showMsg("Could not load dashboard: "+e.message,true)}
 }
+$("planRefresh").addEventListener("click",()=>refresh());
 function esc(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
 $("oppForm").addEventListener("submit",async e=>{e.preventDefault();try{const d=formObj(e.target);d.official_api=d.official_api==="true";d.terms_verified=d.terms_verified==="true";await api("/opportunities",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(d)});e.target.reset();showMsg("Opportunity saved.");refresh()}catch(err){showMsg(err.message,true)}});
 $("productForm").addEventListener("submit",async e=>{e.preventDefault();try{const d=formObj(e.target);d.rights_confirmed=d.rights_confirmed==="true";d.status="draft";if(!d.asset_url)delete d.asset_url;await api("/products",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(d)});e.target.reset();showMsg("Digital product draft saved.");refresh()}catch(err){showMsg(err.message,true)}});
+$("evidenceForm").addEventListener("submit",async e=>{e.preventDefault();try{const d=formObj(e.target);const id=d.opportunity_id;delete d.opportunity_id;d.reviewed_on=new Date(d.reviewed_on).toISOString();await api("/opportunities/"+id+"/evidence",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(d)});e.target.reset();showMsg("Evidence review saved.");refresh()}catch(err){showMsg(err.message,true)}});
 $("revForm").addEventListener("submit",async e=>{e.preventDefault();try{await api("/revenue",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(formObj(e.target))});e.target.reset();showMsg("Revenue record saved.");refresh()}catch(err){showMsg(err.message,true)}});
+$("sourceLeadForm").addEventListener("submit",async e=>{e.preventDefault();try{await api("/source-leads",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(formObj(e.target))});e.target.reset();showMsg("Source added to intake queue.");refresh()}catch(err){showMsg(err.message,true)}});
+$("sourceReviewForm").addEventListener("submit",async e=>{e.preventDefault();try{const d=formObj(e.target),id=d.lead_id;delete d.lead_id;d.official_api=d.official_api==="true";if(d.reviewed_on)d.reviewed_on=new Date(d.reviewed_on).toISOString();else delete d.reviewed_on;if(!d.official_terms_url)delete d.official_terms_url;const result=await api("/source-leads/"+id+"/review",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(d)});showMsg(result.opportunity?"Approved into pending opportunity #"+result.opportunity.id:"Source review saved.");refresh()}catch(err){showMsg(err.message,true)}});
+$("workSessionForm").addEventListener("submit",async e=>{e.preventDefault();try{const d=formObj(e.target);d.minutes_spent=Number(d.minutes_spent);await api("/work-sessions",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(d)});e.target.reset();showMsg("Work session saved.");refresh()}catch(err){showMsg(err.message,true)}});
+$("expenseForm").addEventListener("submit",async e=>{e.preventDefault();try{await api("/expenses",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(formObj(e.target))});e.target.reset();showMsg("Expense record saved.");refresh()}catch(err){showMsg(err.message,true)}});
 refresh();
 </script></body></html>

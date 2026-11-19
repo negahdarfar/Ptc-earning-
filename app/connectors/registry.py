@@ -17,10 +17,10 @@ class ConnectorRegistry:
             raise ConnectorRegistrationError("connector_id must be unique and non-empty")
         if manifest.rate_limit_per_minute < 0:
             raise ConnectorRegistrationError("rate_limit_per_minute cannot be negative")
-        if manifest.enabled and not manifest.is_reviewable_for("IR"):
+        if manifest.enabled and not manifest.is_enableable():
             raise ConnectorRegistrationError(
                 "enabled connectors must have an official HTTPS API, reviewed HTTPS terms, "
-                "a positive rate limit, and explicit IR or GLOBAL eligibility"
+                "a positive rate limit, and an explicit supported-country declaration"
             )
         self._connectors[key] = manifest
 

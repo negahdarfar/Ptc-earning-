@@ -13,7 +13,7 @@ def manifest(**overrides):
         "terms_url": "https://platform.example/terms",
         "api_base_url": "https://api.platform.example/v1",
         "official_api": True,
-        "supported_countries": ("IR",),
+        "supported_countries": ("GB",),
         "payout_methods": ("crypto",),
         "rate_limit_per_minute": 30,
         "enabled": False,
@@ -28,17 +28,22 @@ def test_connectors_are_disabled_by_default_and_not_recommended():
     registry = ConnectorRegistry()
     registry.register(manifest())
     assert registry.get("SAMPLE").enabled is False
-    assert registry.list_for_country("IR") == []
-    assert registry.list_for_country("IR", enabled_only=False) == [registry.get("sample")]
+    assert registry.list_for_country("GB") == []
+    assert registry.list_for_country("GB", enabled_only=False) == [registry.get("sample")]
 
 
-def test_enabled_connector_requires_explicit_iran_eligibility_and_review():
+def test_enabled_connector_requires_explicit_country_eligibility_and_review():
     registry = ConnectorRegistry()
     registry.register(manifest(enabled=True))
-    assert [item.connector_id for item in registry.list_for_country("IR")] == ["sample"]
+    assert [item.connector_id for item in registry.list_for_country("GB")] == ["sample"]
+
+    other_country = ConnectorRegistry()
+    other_country.register(manifest(enabled=True, supported_countries=("US",)))
+    assert other_country.list_for_country("US") == [other_country.get("sample")]
+    assert other_country.list_for_country("GB") == []
 
     with pytest.raises(ConnectorRegistrationError):
-        ConnectorRegistry().register(manifest(enabled=True, supported_countries=("US",)))
+        ConnectorRegistry().register(manifest(enabled=True, supported_countries=()))
 
     with pytest.raises(ConnectorRegistrationError):
         ConnectorRegistry().register(manifest(enabled=True, terms_reviewed_on=None))
@@ -48,7 +53,7 @@ def test_global_is_explicit_and_unknown_is_not_global():
     registry = ConnectorRegistry()
     registry.register(manifest(connector_id="global", supported_countries=("GLOBAL",)))
     registry.register(manifest(connector_id="unknown", supported_countries=("unknown",)))
-    assert [item.connector_id for item in registry.list_for_country("IR", enabled_only=False)] == ["global"]
+    assert [item.connector_id for item in registry.list_for_country("GB", enabled_only=False)] == ["global"]
 
 
 def test_enabled_connector_requires_official_https_api_and_rate_limit():
@@ -72,11 +77,11 @@ def test_duplicate_connector_id_is_rejected():
 def test_explicit_country_exclusion_overrides_global_support():
     registry = ConnectorRegistry()
     registry.register(manifest(
-        connector_id="global-except-iran",
+        connector_id="global-except-country",
         supported_countries=("GLOBAL",),
-        excluded_countries=("IR",),
+        excluded_countries=("GB",),
     ))
-    assert registry.list_for_country("IR", enabled_only=False) == []
+    assert registry.list_for_country("GB", enabled_only=False) == []
     assert [item.connector_id for item in registry.list_for_country("DE", enabled_only=False)] == [
-        "global-except-iran"
+        "global-except-country"
     ]
