@@ -12,6 +12,8 @@ EarnOrbit is an open-source, modular platform for discovering and tracking legit
 - [x] Bearer-token protection for private API endpoints
 - [x] Production startup fails closed if the API token is missing
 - [x] Docker Compose requires an externally supplied API token
+- [x] Authenticated digital product catalog (draft/ready/archived)
+- [ ] Secure file storage and delivery
 - [ ] Verified platform connectors
 - [ ] Multi-user accounts and role-based permissions
 - [ ] Payout integrations (official APIs only)
@@ -45,6 +47,8 @@ All endpoints except GET / and GET /health require the Authorization header in t
 - POST /opportunities — add an opportunity
 - GET /revenue — revenue ledger
 - POST /revenue — record revenue
+- GET /products — list digital products
+- POST /products — create a digital product draft
 - GET /summary — totals by currency
 
 ## Tests
@@ -65,6 +69,10 @@ The `app/connectors` package defines auditable connector manifests, a typed offi
 ## Iran country exclusions
 
 The connector manifest supports explicit excluded-country codes; an exclusion overrides even a `GLOBAL` declaration. See [known ineligible platforms for Iran](docs/known-ineligible-platforms-ir.md). This list records first-party restrictions and is not a complete legal or sanctions review.
+
+## Digital product workshop
+
+The first creator workflow is available through the authenticated `/products` API. It stores product metadata and validates draft/ready status, including rights confirmation before a product is marked ready. It does not upload files, host downloads, process payments, or publish to external marketplaces. See [docs/digital-product-workshop.md](docs/digital-product-workshop.md).
 
 ## Safety and security
 - Never commit private keys, passwords, API tokens, or wallet seed phrases.
