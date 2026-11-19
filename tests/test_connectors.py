@@ -67,3 +67,16 @@ def test_duplicate_connector_id_is_rejected():
     registry.register(manifest())
     with pytest.raises(ConnectorRegistrationError):
         registry.register(manifest(display_name="Duplicate"))
+
+
+def test_explicit_country_exclusion_overrides_global_support():
+    registry = ConnectorRegistry()
+    registry.register(manifest(
+        connector_id="global-except-iran",
+        supported_countries=("GLOBAL",),
+        excluded_countries=("IR",),
+    ))
+    assert registry.list_for_country("IR", enabled_only=False) == []
+    assert [item.connector_id for item in registry.list_for_country("DE", enabled_only=False)] == [
+        "global-except-iran"
+    ]
