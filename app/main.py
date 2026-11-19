@@ -1,8 +1,9 @@
 import os
+import secrets
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, Depends, HTTPException, Query
+from fastapi import Depends, FastAPI, Header, HTTPException, Query
 from fastapi.responses import FileResponse
 from sqlmodel import Session
 
@@ -14,6 +15,8 @@ from .services import list_opportunities, list_revenue, build_summary
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    if os.getenv("ENVIRONMENT", "development").lower() == "production" and not os.getenv("EARNORBIT_API_TOKEN"):
+        raise RuntimeError("EARNORBIT_API_TOKEN must be configured in production.")
     create_db_and_tables()
     yield
 
@@ -21,19 +24,30 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title=os.getenv("APP_NAME", "EarnOrbit"),
     description="A modular tracker for legitimate online earning opportunities and confirmed revenue.",
-    version="0.1.0",
+    version="0.2.0",
     lifespan=lifespan,
 )
 
 
+def require_api_token(authorization: str | None = Header(default=None)):
+    expected = os.getenv("EARNORBIT_API_TOKEN", "")
+    if not expected:
+        raise HTTPException(status_code=503, detail="API authentication is not configured.")
+    scheme, _, supplied = (authorization or "").partition(" ")
+    if scheme.lower() != "bearer" or not supplied or not secrets.compare_digest(supplied, expected):
+        raise HTTPException(status_code=401, detail="A valid Bearer token is required.", headers={"WWW-Authenticate": "Bearer"})
+    return True
+
+
 @app.get("/dashboard", include_in_schema=False)
 def dashboard():
+    # The shell is public; all dashboard data and write APIs require the bearer token.
     return FileResponse(Path(__file__).parent / "static" / "index.html")
 
 
 @app.get("/")
 def root():
-    return {"name": "EarnOrbit", "version": "0.1.0", "docs": "/docs", "dashboard": "/dashboard", "status": "running"}
+    return {"name": "EarnOrbit", "version": "0.2.0", "docs": "/docs", "dashboard": "/dashboard", "status": "running"}
 
 
 @app.get("/health")
@@ -41,7 +55,7 @@ def health():
     return {"status": "ok", "service": "earnorbit"}
 
 
-@app.post("/opportunities", response_model=OpportunityRead, status_code=201)
+@app.post("/opportunities", response_model=OpportunityRead, status_code=201, dependencies=[Depends(require_api_token)])
 def create_opportunity(payload: OpportunityCreate, session: Session = Depends(get_session)):
     item = Opportunity(**payload.model_dump(mode="json"))
     item.platform_url = str(payload.platform_url)
@@ -51,12 +65,12 @@ def create_opportunity(payload: OpportunityCreate, session: Session = Depends(ge
     return item
 
 
-@app.get("/opportunities", response_model=list[OpportunityRead])
+@app.get("/opportunities", response_model=list[OpportunityRead], dependencies=[Depends(require_api_token)])
 def get_opportunities(status: str | None = Query(default=None), session: Session = Depends(get_session)):
     return list_opportunities(session, status)
 
 
-@app.post("/revenue", response_model=RevenueRead, status_code=201)
+@app.post("/revenue", response_model=RevenueRead, status_code=201, dependencies=[Depends(require_api_token)])
 def create_revenue(payload: RevenueCreate, session: Session = Depends(get_session)):
     if payload.status not in {"pending", "confirmed", "rejected"}:
         raise HTTPException(status_code=422, detail="status must be pending, confirmed, or rejected")
@@ -67,11 +81,11 @@ def create_revenue(payload: RevenueCreate, session: Session = Depends(get_sessio
     return entry
 
 
-@app.get("/revenue", response_model=list[RevenueRead])
+@app.get("/revenue", response_model=list[RevenueRead], dependencies=[Depends(require_api_token)])
 def get_revenue(status: str | None = Query(default=None), session: Session = Depends(get_session)):
     return list_revenue(session, status)
 
 
-@app.get("/summary")
+@app.get("/summary", dependencies=[Depends(require_api_token)])
 def summary(session: Session = Depends(get_session)):
     return build_summary(session)
