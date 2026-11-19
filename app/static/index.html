@@ -13,6 +13,7 @@
 <div class="notice">This dashboard is an early MVP. It records opportunities and revenue; it does not execute tasks, create earnings, or send crypto. Do not expose it publicly without authentication and HTTPS.</div>
 <section class="grid">
 <div class="card"><div class="muted">Confirmed revenue</div><div class="metric" id="confirmed">—</div></div>
+<div class="card"><div class="muted">Net profit by currency</div><div class="metric" id="netProfit">—</div></div>
 <div class="card"><div class="muted">Confirmed entries</div><div class="metric" id="confirmedCount">—</div></div>
 <div class="card"><div class="muted">Pending entries</div><div class="metric" id="pendingCount">—</div></div>
 <div class="card"><div class="muted">Tracked opportunities</div><div class="metric" id="opCount">—</div></div>
@@ -47,6 +48,19 @@
 <div class="card"><h2>Revenue ledger</h2><div id="revs" class="muted">Loading…</div></div>
 </section>
 <section class="columns">
+<div class="card"><h2>Record operating expense</h2>
+<form id="expenseForm">
+<input name="source_name" placeholder="Expense source (hosting, tools, fees…)" required>
+<input name="amount" type="number" min="0" step="0.00000001" placeholder="Amount" required>
+<input name="currency" value="USD" placeholder="Currency" required>
+<select name="status"><option value="paid">Paid</option><option value="planned">Planned</option><option value="void">Void</option></select>
+<textarea name="notes" placeholder="Notes"></textarea>
+<button>Save expense</button>
+</form>
+</div>
+<div class="card"><h2>Expense ledger</h2><div id="expenses" class="muted">Connect to load expenses…</div></div>
+</section>
+<section class="columns">
 <div class="card"><h2>Create digital product draft</h2>
 <form id="productForm">
 <input name="title" placeholder="Product title" required minlength="3">
@@ -76,11 +90,12 @@ function formObj(form){return Object.fromEntries(new FormData(form).entries())}
 function showMsg(s,bad=false){$("message").textContent=s;$("message").className=bad?"error":""}
 async function refresh(){
  try{
- const [summary,opps,revs,products,catalog]=await Promise.all([api("/summary"),api("/opportunities"),api("/revenue"),api("/products"),api("/opportunities/catalog")]);
+ const [summary,opps,revs,products,catalog,expenses]=await Promise.all([api("/summary"),api("/opportunities"),api("/revenue"),api("/products"),api("/opportunities/catalog"),api("/expenses")]);
  const currencies=Object.entries(summary.confirmed_revenue_by_currency||{}).map(([c,v])=>c+" "+v).join(" · ")||"0";
- $("confirmed").textContent=currencies;$("confirmedCount").textContent=summary.confirmed_entries;$("pendingCount").textContent=summary.pending_entries;$("opCount").textContent=opps.length;
+ $("confirmed").textContent=currencies;$("netProfit").textContent=Object.entries(summary.net_profit_by_currency||{}).map(([c,v])=>c+" "+v).join(" · ")||"0";$("confirmedCount").textContent=summary.confirmed_entries;$("pendingCount").textContent=summary.pending_entries;$("opCount").textContent=opps.length;
  $("opps").innerHTML=catalog.length?catalog.map(x=>'<div class="item"><b>'+esc(x.name)+'</b> <span class="tag">'+esc(x.status)+'</span><div class="muted">'+esc(x.category)+' · '+esc(x.payout_method)+'</div><a href="'+esc(x.platform_url)+'" target="_blank" rel="noopener">Official site</a></div>').join(""):"No reviewed sources yet. Add a source and mark its terms as verified and status active.";
  $("products").innerHTML=products.length?products.map(x=>['<div class="item"><b>',esc(x.title),'</b> <span class="tag">',esc(x.status),'</span><div class="muted">',esc(x.category),' · ',esc(x.price_amount),' ',esc(x.price_currency),'</div><div class="muted">',esc(x.short_description),'</div></div>'].join("")).join(""):"No digital products yet.";
+ $("expenses").innerHTML=expenses.length?expenses.map(x=>'<div class="item"><b>'+esc(x.amount)+' '+esc(x.currency)+'</b> · '+esc(x.source_name)+' <span class="tag">'+esc(x.status)+'</span><div class="muted">'+new Date(x.recorded_at).toLocaleString()+'</div></div>').join(""):"No expense records yet.";
  $("revs").innerHTML=revs.length?revs.map(x=>'<div class="item"><b>'+esc(x.amount)+' '+esc(x.currency)+'</b> · '+esc(x.source_name)+' <span class="tag">'+esc(x.status)+'</span><div class="muted">'+new Date(x.recorded_at).toLocaleString()+'</div></div>').join(""):"No revenue records yet.";
  }catch(e){showMsg("Could not load dashboard: "+e.message,true)}
 }
@@ -88,5 +103,6 @@ function esc(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&l
 $("oppForm").addEventListener("submit",async e=>{e.preventDefault();try{const d=formObj(e.target);d.official_api=d.official_api==="true";d.terms_verified=d.terms_verified==="true";await api("/opportunities",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(d)});e.target.reset();showMsg("Opportunity saved.");refresh()}catch(err){showMsg(err.message,true)}});
 $("productForm").addEventListener("submit",async e=>{e.preventDefault();try{const d=formObj(e.target);d.rights_confirmed=d.rights_confirmed==="true";d.status="draft";if(!d.asset_url)delete d.asset_url;await api("/products",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(d)});e.target.reset();showMsg("Digital product draft saved.");refresh()}catch(err){showMsg(err.message,true)}});
 $("revForm").addEventListener("submit",async e=>{e.preventDefault();try{await api("/revenue",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(formObj(e.target))});e.target.reset();showMsg("Revenue record saved.");refresh()}catch(err){showMsg(err.message,true)}});
+$("expenseForm").addEventListener("submit",async e=>{e.preventDefault();try{await api("/expenses",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(formObj(e.target))});e.target.reset();showMsg("Expense record saved.");refresh()}catch(err){showMsg(err.message,true)}});
 refresh();
 </script></body></html>
