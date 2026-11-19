@@ -8,7 +8,7 @@ from fastapi import Depends, FastAPI, Header, HTTPException, Query
 from fastapi.responses import FileResponse
 from sqlmodel import Session, select
 
-from .database import create_db_and_tables, get_session
+from .database import create_db_and_tables, get_session, engine
 from .models import Opportunity, RevenueEntry, ExpenseEntry, DigitalProduct, OpportunityEvidence, AuditEvent, WorkSession, SourceLead
 from .schemas import (
     OpportunityCreate, OpportunityRead, RevenueCreate, RevenueRead,
@@ -22,6 +22,7 @@ from .services import (
 from .discovery import recommend_opportunities, rank_opportunities
 from .optimizer import build_optimizer_plan
 from .performance import build_performance_summary
+from .source_catalog import seed_initial_source_leads
 
 
 @asynccontextmanager
@@ -29,6 +30,8 @@ async def lifespan(app: FastAPI):
     if os.getenv("ENVIRONMENT", "development").lower() == "production" and not os.getenv("EARNORBIT_API_TOKEN"):
         raise RuntimeError("EARNORBIT_API_TOKEN must be configured in production.")
     create_db_and_tables()
+    with Session(engine) as seed_session:
+        seed_initial_source_leads(seed_session)
     yield
 
 

@@ -257,3 +257,22 @@ def test_source_intake_activation_rejects_stale_evidence(client):
     assert reviewed.status_code == 200
     assert client.post(f"/opportunities/{reviewed.json()['opportunity']['id']}/activate",
                        headers=auth()).status_code == 409
+
+
+def test_curated_source_catalog_seeds_once_without_overwriting_reviews(tmp_path):
+    from sqlmodel import Session, SQLModel, create_engine, select
+    from app.models import SourceLead
+    from app.source_catalog import seed_initial_source_leads
+
+    engine = create_engine(f"sqlite:///{tmp_path / 'source-seed.db'}")
+    SQLModel.metadata.create_all(engine)
+    with Session(engine) as session:
+        assert seed_initial_source_leads(session) == 6
+        assert seed_initial_source_leads(session) == 0
+        leads = session.exec(select(SourceLead)).all()
+        assert {lead.platform_key for lead in leads} == {
+            "upwork", "fiverr", "gumroad", "amazon-associates", "clickworker", "prolific"
+        }
+        assert all(lead.review_status == "new" for lead in leads)
+        assert all(lead.country_eligibility == "unknown" for lead in leads)
+    engine.dispose()
