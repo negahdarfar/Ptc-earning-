@@ -54,3 +54,30 @@ class DigitalProduct(SQLModel, table=True):
     rights_confirmed: bool = False
     status: str = Field(default="draft", index=True)
     created_at: datetime = Field(default_factory=utc_now)
+
+
+class OpportunityEvidence(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    opportunity_id: int = Field(index=True, foreign_key="opportunity.id")
+    evidence_url: str
+    reviewed_on: str = Field(index=True)
+    country_eligibility: str = "unknown"
+    kyc_summary: str = "unknown"
+    payout_method: str = "unknown"
+    payout_currency: str = "USD"
+    minimum_payout: str = "unknown"
+    payout_fee_percent: str = "0"
+    average_reward: str = "0"
+    estimated_task_minutes: str = "0"
+    approval_rate_percent: str = "0"
+    reviewer_notes: str = ""
+    created_at: datetime = Field(default_factory=utc_now)
+
+
+class AuditEvent(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    event_type: str = Field(index=True)
+    entity_type: str = Field(index=True)
+    entity_id: int = Field(index=True)
+    details: str = ""
+    created_at: datetime = Field(default_factory=utc_now)
