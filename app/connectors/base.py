@@ -36,15 +36,22 @@ class ConnectorManifest:
             return False
         return code in allowed or "GLOBAL" in allowed
 
-    def is_reviewable_for(self, country: str) -> bool:
+    def is_enableable(self) -> bool:
+        """Validate provider-level requirements without assuming an operator country."""
+        allowed = self.normalized_countries()
+        valid_codes = all(code == "GLOBAL" or (len(code) == 2 and code.isalpha()) for code in allowed)
         return bool(
             self.official_api
             and self.terms_url.startswith("https://")
             and self.api_base_url.startswith("https://")
             and self.terms_reviewed_on is not None
-            and self.supports_country(country)
+            and allowed
+            and valid_codes
             and self.rate_limit_per_minute > 0
         )
+
+    def is_reviewable_for(self, country: str) -> bool:
+        return self.is_enableable() and self.supports_country(country)
 
 
 @dataclass(frozen=True)
