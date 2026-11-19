@@ -18,6 +18,7 @@ class ConnectorManifest:
     api_base_url: str
     official_api: bool
     supported_countries: tuple[str, ...] = field(default_factory=tuple)
+    excluded_countries: tuple[str, ...] = field(default_factory=tuple)
     payout_methods: tuple[str, ...] = field(default_factory=tuple)
     rate_limit_per_minute: int = 0
     enabled: bool = False
@@ -30,6 +31,9 @@ class ConnectorManifest:
     def supports_country(self, country: str) -> bool:
         code = country.strip().upper()
         allowed = self.normalized_countries()
+        excluded = {country.strip().upper() for country in self.excluded_countries}
+        if code in excluded:
+            return False
         return code in allowed or "GLOBAL" in allowed
 
     def is_reviewable_for(self, country: str) -> bool:
