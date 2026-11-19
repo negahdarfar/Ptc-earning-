@@ -8,9 +8,15 @@ from fastapi.responses import FileResponse
 from sqlmodel import Session, select
 
 from .database import create_db_and_tables, get_session
-from .models import Opportunity, RevenueEntry, DigitalProduct
-from .schemas import OpportunityCreate, OpportunityRead, RevenueCreate, RevenueRead, DigitalProductCreate, DigitalProductRead
-from .services import list_opportunities, list_revenue, build_summary, list_catalog_opportunities
+from .models import Opportunity, RevenueEntry, ExpenseEntry, DigitalProduct
+from .schemas import (
+    OpportunityCreate, OpportunityRead, RevenueCreate, RevenueRead,
+    ExpenseCreate, ExpenseRead, DigitalProductCreate, DigitalProductRead,
+)
+from .services import (
+    list_opportunities, list_revenue, list_expenses, build_summary,
+    list_catalog_opportunities,
+)
 from .discovery import recommend_opportunities
 
 
@@ -24,8 +30,8 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title=os.getenv("APP_NAME", "EarnOrbit"),
-    description="A modular tracker for legitimate online earning opportunities and confirmed revenue.",
-    version="0.2.0",
+    description="A modular tracker for legitimate online earning opportunities, expenses, and verified net revenue.",
+    version="0.3.0",
     lifespan=lifespan,
 )
 
@@ -42,13 +48,12 @@ def require_api_token(authorization: str | None = Header(default=None)):
 
 @app.get("/dashboard", include_in_schema=False)
 def dashboard():
-    # The shell is public; all dashboard data and write APIs require the bearer token.
     return FileResponse(Path(__file__).parent / "static" / "index.html")
 
 
 @app.get("/")
 def root():
-    return {"name": "EarnOrbit", "version": "0.2.0", "docs": "/docs", "dashboard": "/dashboard", "status": "running"}
+    return {"name": "EarnOrbit", "version": "0.3.0", "docs": "/docs", "dashboard": "/dashboard", "status": "running"}
 
 
 @app.get("/health")
@@ -73,7 +78,7 @@ def get_opportunities(status: str | None = Query(default=None), category: str | 
 
 @app.get("/opportunities/catalog", response_model=list[OpportunityRead], dependencies=[Depends(require_api_token)])
 def get_opportunity_catalog(category: str | None = Query(default=None, min_length=2, max_length=60), limit: int = Query(default=100, ge=1, le=250), session: Session = Depends(get_session)):
-    """Reviewed catalog for manual and API-enabled sources; listing never authorizes automation."""
+    """Reviewed catalog for manual and API-enabled sources; listing never authorizes automated activity."""
     return list_catalog_opportunities(session, category, limit)
 
 
@@ -112,14 +117,32 @@ def create_revenue(payload: RevenueCreate, session: Session = Depends(get_sessio
     return entry
 
 
-@app.get("/opportunities/recommended", response_model=list[OpportunityRead], dependencies=[Depends(require_api_token)])
-def get_recommended_opportunities(country: str | None = Query(default=None, min_length=2, max_length=2), crypto_only: bool = False, limit: int = Query(default=50, ge=1, le=100), session: Session = Depends(get_session)):
-    return recommend_opportunities(session, country, crypto_only, limit)
-
-
 @app.get("/revenue", response_model=list[RevenueRead], dependencies=[Depends(require_api_token)])
 def get_revenue(status: str | None = Query(default=None), session: Session = Depends(get_session)):
     return list_revenue(session, status)
+
+
+@app.post("/expenses", response_model=ExpenseRead, status_code=201, dependencies=[Depends(require_api_token)])
+def create_expense(payload: ExpenseCreate, session: Session = Depends(get_session)):
+    if payload.status not in {"planned", "paid", "void"}:
+        raise HTTPException(status_code=422, detail="status must be planned, paid, or void")
+    entry = ExpenseEntry(**payload.model_dump())
+    session.add(entry)
+    session.commit()
+    session.refresh(entry)
+    return entry
+
+
+@app.get("/expenses", response_model=list[ExpenseRead], dependencies=[Depends(require_api_token)])
+def get_expenses(status: str | None = Query(default=None), session: Session = Depends(get_session)):
+    if status and status not in {"planned", "paid", "void"}:
+        raise HTTPException(status_code=422, detail="invalid expense status")
+    return list_expenses(session, status)
+
+
+@app.get("/opportunities/recommended", response_model=list[OpportunityRead], dependencies=[Depends(require_api_token)])
+def get_recommended_opportunities(country: str | None = Query(default=None, min_length=2, max_length=2), crypto_only: bool = False, limit: int = Query(default=50, ge=1, le=100), session: Session = Depends(get_session)):
+    return recommend_opportunities(session, country, crypto_only, limit)
 
 
 @app.get("/summary", dependencies=[Depends(require_api_token)])
