@@ -66,6 +66,9 @@ def create_opportunity(payload: OpportunityCreate, session: Session = Depends(ge
     item = Opportunity(**payload.model_dump(mode="json"))
     item.platform_url = str(payload.platform_url)
     session.add(item)
+    session.flush()
+    session.add(AuditEvent(event_type="opportunity_created", entity_type="opportunity", entity_id=item.id,
+                           details="Opportunity intake record created."))
     session.commit()
     session.refresh(item)
     return item
@@ -88,6 +91,8 @@ def add_opportunity_evidence(opportunity_id: int, payload: OpportunityEvidenceCr
     opportunity = session.get(Opportunity, opportunity_id)
     if not opportunity:
         raise HTTPException(status_code=404, detail="Opportunity not found")
+    if payload.reviewed_on.date().isoformat() > __import__("datetime").date.today().isoformat():
+        raise HTTPException(status_code=422, detail="reviewed_on cannot be in the future")
     fee, reward, minutes, approval = map(float, (payload.payout_fee_percent, payload.average_reward, payload.estimated_task_minutes, payload.approval_rate_percent))
     if fee > 100 or approval > 100:
         raise HTTPException(status_code=422, detail="fee and approval rate must be between 0 and 100")
@@ -155,6 +160,9 @@ def create_revenue(payload: RevenueCreate, session: Session = Depends(get_sessio
         raise HTTPException(status_code=422, detail="status must be pending, confirmed, or rejected")
     entry = RevenueEntry(**payload.model_dump())
     session.add(entry)
+    session.flush()
+    session.add(AuditEvent(event_type="revenue_recorded", entity_type="revenue", entity_id=entry.id,
+                           details="Revenue ledger entry created; confirmation status is tracked separately."))
     session.commit()
     session.refresh(entry)
     return entry
@@ -171,6 +179,9 @@ def create_expense(payload: ExpenseCreate, session: Session = Depends(get_sessio
         raise HTTPException(status_code=422, detail="status must be planned, paid, or void")
     entry = ExpenseEntry(**payload.model_dump())
     session.add(entry)
+    session.flush()
+    session.add(AuditEvent(event_type="expense_recorded", entity_type="expense", entity_id=entry.id,
+                           details="Expense ledger entry created."))
     session.commit()
     session.refresh(entry)
     return entry
