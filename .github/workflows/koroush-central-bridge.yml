@@ -1,0 +1,40 @@
+name: KOROUSH Central AI Bridge
+
+on:
+  workflow_dispatch:
+    inputs:
+      idempotency_key:
+        description: Stable unique key for this research request
+        required: true
+        type: string
+      target_language:
+        description: Optional output language (for example Persian)
+        required: false
+        default: ""
+        type: string
+      evidence_json:
+        description: JSON array of 1-8 source objects with source_id and text
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  submit-research:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Submit evidence to KOROUSH CENTRAL AI
+        env:
+          KOROUSH_CENTRAL_BASE_URL: ${{ secrets.KOROUSH_CENTRAL_BASE_URL }}
+          KOROUSH_CENTRAL_TENANT_KEY: ${{ secrets.KOROUSH_CENTRAL_TENANT_KEY }}
+          KOROUSH_CENTRAL_INTEGRATION_ID: "ptc"
+          KOROUSH_CENTRAL_EVIDENCE_JSON: ${{ inputs.evidence_json }}
+          KOROUSH_CENTRAL_IDEMPOTENCY_KEY: ${{ inputs.idempotency_key }}
+          KOROUSH_CENTRAL_TARGET_LANGUAGE: ${{ inputs.target_language }}
+        run: python scripts/koroush_central_bridge.py
