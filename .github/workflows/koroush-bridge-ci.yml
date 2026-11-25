@@ -1,0 +1,33 @@
+name: KOROUSH Central Bridge CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: ["integration/koroush-central-bridge"]
+
+permissions:
+  contents: read
+
+jobs:
+  bridge-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Compile bridge
+        run: python -m py_compile scripts/koroush_central_bridge.py
+      - name: Validate CLI and evidence contract without network access
+        run: |
+          python scripts/koroush_central_bridge.py --help
+          python - <<'PY'
+          import importlib.util
+          spec = importlib.util.spec_from_file_location("central_bridge", "scripts/koroush_central_bridge.py")
+          module = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(module)
+          evidence = module.load_evidence(None, '[{"source_id":"ci-smoke","text":"synthetic local smoke test"}]')
+          assert len(evidence) == 1 and evidence[0]["source_id"] == "ci-smoke"
+          print("Bridge CLI and evidence validation passed; no network request or secret was used.")
+          PY
