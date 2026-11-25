@@ -12,6 +12,10 @@ on:
         required: false
         default: ""
         type: string
+      evidence_json:
+        description: JSON array of 1-8 source objects with source_id and text
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -30,7 +34,7 @@ jobs:
           KOROUSH_CENTRAL_BASE_URL: ${{ secrets.KOROUSH_CENTRAL_BASE_URL }}
           KOROUSH_CENTRAL_TENANT_KEY: ${{ secrets.KOROUSH_CENTRAL_TENANT_KEY }}
           KOROUSH_CENTRAL_INTEGRATION_ID: "ptc"
-          KOROUSH_CENTRAL_EVIDENCE_FILE: "data/central-evidence.json"
+          KOROUSH_CENTRAL_EVIDENCE_JSON: ${{ inputs.evidence_json }}
           KOROUSH_CENTRAL_IDEMPOTENCY_KEY: ${{ inputs.idempotency_key }}
           KOROUSH_CENTRAL_TARGET_LANGUAGE: ${{ inputs.target_language }}
         run: python scripts/koroush_central_bridge.py
