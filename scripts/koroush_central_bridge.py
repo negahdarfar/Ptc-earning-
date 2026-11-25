@@ -36,9 +36,14 @@ def request_json(url: str, *, method: str, headers: dict[str, str], body: dict |
     return payload
 
 
-def load_evidence(path: str) -> list[dict]:
-    with open(path, "r", encoding="utf-8") as handle:
-        raw = json.load(handle)
+def load_evidence(path: str | None, inline_json: str | None) -> list[dict]:
+    if inline_json:
+        raw = json.loads(inline_json)
+    elif path:
+        with open(path, "r", encoding="utf-8") as handle:
+            raw = json.load(handle)
+    else:
+        raise ValueError("Provide evidence JSON or an evidence file")
     evidence = raw.get("evidence") if isinstance(raw, dict) else raw
     if not isinstance(evidence, list) or not 1 <= len(evidence) <= 8:
         raise ValueError("Evidence file must contain 1 to 8 items (array or {evidence: [...]})")
@@ -54,6 +59,7 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--integration-id", default=os.getenv("KOROUSH_CENTRAL_INTEGRATION_ID"))
     parser.add_argument("--evidence-file", default=os.getenv("KOROUSH_CENTRAL_EVIDENCE_FILE"))
+    parser.add_argument("--evidence-json", default=os.getenv("KOROUSH_CENTRAL_EVIDENCE_JSON"))
     parser.add_argument("--idempotency-key", default=os.getenv("KOROUSH_CENTRAL_IDEMPOTENCY_KEY"))
     parser.add_argument("--target-language", default=os.getenv("KOROUSH_CENTRAL_TARGET_LANGUAGE"))
     parser.add_argument("--wait-seconds", type=int, default=240)
@@ -64,12 +70,12 @@ def main() -> int:
     repository = os.getenv("GITHUB_REPOSITORY", "").strip().lower()
     if not base_url.startswith("https://") or not tenant_key.startswith("kor_") or not repository:
         raise ValueError("Set HTTPS KOROUSH_CENTRAL_BASE_URL, KOROUSH_CENTRAL_TENANT_KEY and GITHUB_REPOSITORY")
-    if not args.integration_id or not args.evidence_file or not args.idempotency_key:
-        raise ValueError("integration-id, evidence-file and idempotency-key are required")
+    if not args.integration_id or not args.idempotency_key or not (args.evidence_file or args.evidence_json):
+        raise ValueError("integration-id, evidence and idempotency-key are required")
     if not 1 <= args.wait_seconds <= 1800:
         raise ValueError("wait-seconds must be between 1 and 1800")
 
-    evidence = load_evidence(args.evidence_file)
+    evidence = load_evidence(args.evidence_file, args.evidence_json)
     headers = {"X-Tenant-Key": tenant_key, "Content-Type": "application/json"}
     body = {
         "repository": repository,
