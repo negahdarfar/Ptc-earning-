@@ -62,7 +62,7 @@ def main() -> int:
     parser.add_argument("--evidence-json", default=os.getenv("KOROUSH_CENTRAL_EVIDENCE_JSON"))
     parser.add_argument("--idempotency-key", default=os.getenv("KOROUSH_CENTRAL_IDEMPOTENCY_KEY"))
     parser.add_argument("--target-language", default=os.getenv("KOROUSH_CENTRAL_TARGET_LANGUAGE"))
-    parser.add_argument("--wait-seconds", type=int, default=240)
+    parser.add_argument("--wait-seconds", type=int, default=480)
     args = parser.parse_args()
 
     base_url = os.getenv("KOROUSH_CENTRAL_BASE_URL", "").strip().rstrip("/")
